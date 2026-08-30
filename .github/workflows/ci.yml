@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  SIYO_VERSION: 0.4.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Siyo ${{ env.SIYO_VERSION }}
+        run: |
+          curl -fsSL -o siyo.tar.gz \
+            "https://github.com/urunsiyabend/SiyoCompiler/releases/download/v${SIYO_VERSION}/siyo-${SIYO_VERSION}-linux-x64.tar.gz"
+          tar xzf siyo.tar.gz
+          echo "$PWD/siyo-${SIYO_VERSION}-linux-x64/bin" >> "$GITHUB_PATH"
+
+      - name: Report toolchain version
+        run: siyoc --version
+
+      - name: Run test suite
+        run: siyoc test
+
+      - name: Validate the example site
+        run: ./aja check
+
+      - name: Build the example site
+        run: ./aja build
+
+      - name: Verify generated output
+        run: |
+          test -f dist/index.html
+          test -f dist/feed.xml
+          test -f dist/sitemap.xml
+          test -f dist/robots.txt
+          test -f dist/search.json
+          test -f dist/about/index.html
+          # Static assets must be copied byte-for-byte.
+          cmp static/siyo.png dist/siyo.png
+          cmp static/style.css dist/style.css
+          # Drafts must not reach a production build.
+          ! test -e dist/notes/draft-example

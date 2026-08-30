@@ -1,0 +1,52 @@
+import "std/io"
+import "std/json"
+import "model"
+
+fn stringValue(values: map, key: string, fallback: string) -> string {
+    if !values.has(key) { return fallback }
+    mut value = toString(values.get(key))
+    if value == "null" || len(trim(value)) == 0 { return fallback }
+    value
+}
+
+fn intValue(values: map, key: string, fallback: int) -> int {
+    if !values.has(key) { return fallback }
+    try {
+        parseInt(toString(values.get(key)))
+    } catch e {
+        fallback
+    }
+}
+
+fn boolValue(values: map, key: string, fallback: bool) -> bool {
+    if !values.has(key) { return fallback }
+    mut value = toLower(toString(values.get(key)))
+    if value == "true" { return true }
+    if value == "false" { return false }
+    fallback
+}
+
+fn load(path: string) -> SiteConfig {
+    mut defaults = model.defaultConfig()
+    if !io.exists(path) {
+        println("warning: " + path + " not found; using defaults")
+        return defaults
+    }
+
+    mut values = json.parse(io.readFile(path))
+    SiteConfig {
+        title: stringValue(values, "title", defaults.title),
+        tagline: stringValue(values, "tagline", defaults.tagline),
+        description: stringValue(values, "description", defaults.description),
+        author: stringValue(values, "author", defaults.author),
+        language: stringValue(values, "language", defaults.language),
+        baseUrl: stringValue(values, "base_url", defaults.baseUrl),
+        contentDir: stringValue(values, "content_dir", defaults.contentDir),
+        templatesDir: stringValue(values, "templates_dir", defaults.templatesDir),
+        staticDir: stringValue(values, "static_dir", defaults.staticDir),
+        outputDir: stringValue(values, "output_dir", defaults.outputDir),
+        postsPerPage: intValue(values, "posts_per_page", defaults.postsPerPage),
+        includeDrafts: boolValue(values, "include_drafts", defaults.includeDrafts),
+        port: intValue(values, "port", defaults.port)
+    }
+}

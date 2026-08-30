@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+SIYO_BIN="${SIYO_BIN:-siyoc}"
+exec "$SIYO_BIN" run "$@"

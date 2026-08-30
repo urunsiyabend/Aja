@@ -1,0 +1,120 @@
+// Domain model shared by Aja's parser, renderer, feed and server modules.
+
+enum PageKind { Post, Page }
+
+struct SiteConfig {
+    title: string,
+    tagline: string,
+    description: string,
+    author: string,
+    language: string,
+    baseUrl: string,
+    contentDir: string,
+    templatesDir: string,
+    staticDir: string,
+    outputDir: string,
+    postsPerPage: int,
+    includeDrafts: bool,
+    port: int
+}
+
+impl SiteConfig {
+    fn assetUrl(self, relative: string) -> string {
+        self.baseUrl + "/" + relative
+    }
+}
+
+struct Page {
+    kind: int,
+    sourcePath: string,
+    relativePath: string,
+    outputPath: string,
+    url: string,
+    slug: string,
+    title: string,
+    description: string,
+    date: string,
+    templateName: string,
+    tags: string[],
+    draft: bool,
+    weight: int,
+    rawBody: string,
+    renderedBody: string
+}
+
+impl Page {
+    fn isPost(self) -> bool {
+        self.kind == PageKind.Post
+    }
+
+    fn hasTag(self, wanted: string) -> bool {
+        for tag in self.tags {
+            if toLower(tag) == toLower(wanted) { return true }
+        }
+        false
+    }
+}
+
+struct BuildStats {
+    discovered: int,
+    rendered: int,
+    skippedDrafts: int,
+    copiedAssets: int,
+    warnings: int,
+    elapsedMillis: long
+}
+
+struct ContentSet {
+    pages: Page[],
+    discovered: int,
+    skippedDrafts: int
+}
+
+fn defaultConfig() -> SiteConfig {
+    SiteConfig {
+        title: "Aja Site",
+        tagline: "A site built with Aja",
+        description: "Generated with Aja",
+        author: "Anonymous",
+        language: "en",
+        baseUrl: "http://localhost:4173",
+        contentDir: "content",
+        templatesDir: "templates",
+        staticDir: "static",
+        outputDir: "dist",
+        postsPerPage: 10,
+        includeDrafts: false,
+        port: 4173
+    }
+}
+
+fn emptyPage(sourcePath: string, relativePath: string) -> Page {
+    Page {
+        kind: PageKind.Post,
+        sourcePath: sourcePath,
+        relativePath: relativePath,
+        outputPath: "",
+        url: "",
+        slug: "",
+        title: "Untitled",
+        description: "",
+        date: "",
+        templateName: "post.html",
+        tags: [],
+        draft: false,
+        weight: 0,
+        rawBody: "",
+        renderedBody: ""
+    }
+}
+
+fn emptyStats() -> BuildStats {
+    BuildStats {
+        discovered: 0,
+        rendered: 0,
+        skippedDrafts: 0,
+        copiedAssets: 0,
+        warnings: 0,
+        elapsedMillis: toLong(0)
+    }
+}

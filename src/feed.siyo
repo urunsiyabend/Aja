@@ -1,0 +1,51 @@
+import "std/html"
+import "std/json"
+import "model"
+
+fn xml(value: string) -> string { html.escape(value) }
+
+fn rss(config: SiteConfig, pages: Page[]) -> string {
+    mut items = ""
+    for page in pages {
+        if !page.isPost() { continue }
+        items += "    <item>\n"
+        items += "      <title>" + xml(page.title) + "</title>\n"
+        items += "      <link>" + xml(config.baseUrl + page.url) + "</link>\n"
+        items += "      <guid>" + xml(config.baseUrl + page.url) + "</guid>\n"
+        items += "      <pubDate>" + xml(page.date) + "</pubDate>\n"
+        items += "      <description>" + xml(page.description) + "</description>\n"
+        items += "    </item>\n"
+    }
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<rss version=\"2.0\"><channel>\n" +
+        "  <title>" + xml(config.title) + "</title>\n" +
+        "  <link>" + xml(config.baseUrl) + "</link>\n" +
+        "  <description>" + xml(config.description) + "</description>\n" +
+        items + "</channel></rss>\n"
+}
+
+fn sitemap(config: SiteConfig, pages: Page[]) -> string {
+    mut urls = "  <url><loc>" + xml(config.baseUrl + "/") + "</loc></url>\n"
+    for page in pages {
+        urls += "  <url><loc>" + xml(config.baseUrl + page.url) + "</loc></url>\n"
+    }
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+        "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n" + urls + "</urlset>\n"
+}
+
+fn searchIndex(pages: Page[]) -> string {
+    mut output = "["
+    mut first = true
+    for page in pages {
+        if !first { output += "," }
+        first = false
+        mut entry = map()
+        entry.set("title", page.title)
+        entry.set("description", page.description)
+        entry.set("url", page.url)
+        entry.set("date", page.date)
+        entry.set("tags", page.tags)
+        output += json.stringify(entry)
+    }
+    output + "]\n"
+}

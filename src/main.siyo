@@ -1,0 +1,76 @@
+import "std/os"
+import "builder"
+import "checker"
+import "config"
+import "filesystem"
+import "server"
+
+fn help() {
+    println("Aja 0.1.0 — a static site generator written in Siyo")
+    println("")
+    println("Usage:")
+    println("  aja build          generate the site")
+    println("  aja check          validate config and content")
+    println("  aja serve [port]   build and serve with concurrent requests")
+    println("  aja clean          remove generated output")
+    println("  aja version        print versions")
+}
+
+fn runBuild() {
+    mut cfg = config.load("aja.json")
+    mut stats = builder.build(cfg)
+    println("Aja focused " + toString(stats.rendered) + " page(s) and " + toString(stats.copiedAssets) + " asset(s) in " + toString(stats.elapsedMillis) + "ms")
+    if stats.skippedDrafts > 0 { println("Skipped " + toString(stats.skippedDrafts) + " draft(s)") }
+    println("Output: " + cfg.outputDir + "/")
+}
+
+fn runCheck() {
+    mut failures = checker.check(config.load("aja.json"))
+    if failures == 0 {
+        println("Aja check passed")
+    } else {
+        println("Aja check failed with " + toString(failures) + " issue(s)")
+        os.exit(1)
+    }
+}
+
+fn runServe(args: string[]) {
+    mut cfg = config.load("aja.json")
+    mut port = cfg.port
+    if len(args) > 1 { port = parseInt(args[1]) }
+    runBuild()
+    server.serve(cfg.outputDir, port)
+}
+
+fn runClean() {
+    mut cfg = config.load("aja.json")
+    filesystem.clean(cfg.outputDir)
+    println("Removed " + cfg.outputDir + "/")
+}
+
+fn printVersion() { println("aja 0.1.0 (Siyo 0.4.0)") }
+
+fn unknown(command: string) {
+    println("Unknown command: " + command)
+    help()
+    os.exit(1)
+}
+
+fn main() {
+    mut args = os.args()
+    if len(args) == 0 {
+        help()
+        return
+    }
+
+    mut command = toLower(args[0])
+    match command {
+        "build" => runBuild(),
+        "check" => runCheck(),
+        "serve" => runServe(args),
+        "clean" => runClean(),
+        "version" => printVersion(),
+        "help" => help(),
+        _ => unknown(command)
+    }
+}

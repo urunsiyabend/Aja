@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="{{language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{description}}">
+  <meta name="author" content="{{site_author}}">
+  <meta name="generator" content="Aja">
+  <meta property="og:site_name" content="{{site_title}}">
+  <meta property="og:title" content="{{title}}">
+  <meta property="og:description" content="{{description}}">
+  <meta property="og:url" content="{{canonical_url}}">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="{{canonical_url}}">
+  <link rel="alternate" type="application/rss+xml" title="{{site_title}}" href="/feed.xml">
+  <link rel="icon" type="image/png" href="/siyo.png">
+  <link rel="stylesheet" href="/style.css">
+  <title>{{title}} · {{site_title}}</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/">{{site_title}}</a>
+    <nav aria-label="Main navigation">
+      <a href="/">Posts</a>
+      <a href="/about/">About</a>
+      <a href="/feed.xml">RSS</a>
+    </nav>
+  </header>
+  <main id="main">{{content}}</main>
+  <footer class="site-footer">
+    <p>{{site_title}} — {{site_tagline}}</p>
+    <p class="colophon">Built with <a href="https://github.com/urunsiyabend/Aja">Aja</a>, a static site generator written in <a href="https://github.com/urunsiyabend/SiyoCompiler">Siyo</a>.</p>
+  </footer>
+</body>
+</html>

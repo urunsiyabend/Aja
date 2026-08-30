@@ -1,0 +1,47 @@
+import "std/io"
+import "std/path"
+import "content"
+import "model"
+
+fn report(message: string) {
+    println("  error: " + message)
+}
+
+fn check(config: SiteConfig) -> int {
+    mut failures = 0
+    if !startsWith(config.baseUrl, "http://") && !startsWith(config.baseUrl, "https://") {
+        report("base_url must start with http:// or https://")
+        failures += 1
+    }
+    if config.outputDir == config.contentDir || config.outputDir == config.staticDir {
+        report("output_dir must not overlap an input directory")
+        failures += 1
+    }
+
+    mut loaded = content.load(config)
+    for page in loaded.pages {
+        if len(trim(page.title)) == 0 {
+            report(page.relativePath + " has an empty title")
+            failures += 1
+        }
+        if page.isPost() && len(trim(page.date)) == 0 {
+            report(page.relativePath + " is a post without a date")
+            failures += 1
+        }
+        mut selectedTemplate = path.join(config.templatesDir, page.templateName)
+        if !io.exists(selectedTemplate) {
+            report(page.relativePath + " selects missing template " + page.templateName)
+            failures += 1
+        }
+    }
+
+    for i in range(0, len(loaded.pages)) {
+        for j in range(i + 1, len(loaded.pages)) {
+            if loaded.pages[i].url == loaded.pages[j].url {
+                report("duplicate output URL " + loaded.pages[i].url + " from " + loaded.pages[i].relativePath + " and " + loaded.pages[j].relativePath)
+                failures += 1
+            }
+        }
+    }
+    failures
+}

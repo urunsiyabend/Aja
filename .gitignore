@@ -1,0 +1,4 @@
+dist/
+*.class
+.siyo/
+.DS_Store

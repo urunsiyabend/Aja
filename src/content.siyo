@@ -1,0 +1,36 @@
+import "std/io"
+import "std/path"
+import "frontmatter"
+import "markdown"
+import "model"
+
+fn load(config: SiteConfig) -> ContentSet {
+    mut pages: Page[] = []
+    mut discovered = 0
+    mut skipped = 0
+
+    if !io.exists(config.contentDir) { error("content directory not found: " + config.contentDir) }
+    for relative in io.walk(config.contentDir) {
+        if !endsWith(toLower(relative), ".md") { continue }
+        discovered += 1
+        mut sourcePath = path.join(config.contentDir, relative)
+        mut page = frontmatter.parse(sourcePath, relative, io.readFile(sourcePath))
+        if page.draft && !config.includeDrafts {
+            skipped += 1
+            continue
+        }
+        page.renderedBody = markdown.render(page.rawBody)
+        push(pages, page)
+    }
+
+    sort(pages, fn(a: Page, b: Page) -> int {
+        if a.weight < b.weight { return -1 }
+        if a.weight > b.weight { return 1 }
+        if a.date > b.date { return -1 }
+        if a.date < b.date { return 1 }
+        if a.title < b.title { return -1 }
+        if a.title > b.title { return 1 }
+        0
+    })
+    ContentSet { pages: pages, discovered: discovered, skippedDrafts: skipped }
+}

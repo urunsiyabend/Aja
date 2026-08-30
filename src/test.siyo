@@ -1,0 +1,57 @@
+import "std/testing"
+import "config"
+import "filesystem"
+import "frontmatter"
+import "markdown"
+import "model"
+import "template"
+
+fn testConfig() {
+    mut cfg = config.load("aja.json")
+    testing.assertEqual(cfg.title, "Aja", "loads JSON config")
+    testing.assertEqual(toString(cfg.port), "4173", "loads numeric config")
+    testing.assert(!cfg.includeDrafts, "loads boolean config")
+    testing.assertEqual(cfg.tagline, "A static site generator written in Siyo.", "loads tagline")
+}
+
+fn testFrontMatter() {
+    mut source = "---\ntitle: Focused Light\ndate: 2026-08-30\ntags: siyo, aja\ndraft: yes\nkind: page\n---\nHello"
+    mut page = frontmatter.parse("content/focused.md", "focused.md", source)
+    testing.assertEqual(page.title, "Focused Light", "parses title")
+    testing.assertEqual(page.url, "/focused/", "builds page URL")
+    testing.assertEqual(toString(len(page.tags)), "2", "parses tags")
+    testing.assert(page.draft, "parses yes as true")
+    testing.assert(!page.isPost(), "parses page kind")
+}
+
+fn testMarkdown() {
+    mut source = "# Heading\n\nA **bold** value and [bad](javascript:alert(1)).\n\n- one\n- two\n\n```siyo\nprint(\"<unsafe>\")\n```"
+    mut output = markdown.render(source)
+    testing.assert(contains(output, "<h1>Heading</h1>"), "renders heading")
+    testing.assert(contains(output, "<strong>bold</strong>"), "renders bold")
+    testing.assert(contains(output, "href=\"#\""), "blocks unsafe link scheme")
+    testing.assert(contains(output, "<ul>"), "renders list")
+    testing.assert(contains(output, "&lt;unsafe&gt;"), "escapes fenced code")
+}
+
+fn testTemplate() {
+    mut values = map()
+    values.set("name", "Aja")
+    testing.assertEqual(template.apply("Hello {{ name }}!", values), "Hello Aja!", "applies template values")
+}
+
+fn testOutputGuard() {
+    testing.assertThrows(fn() {
+        filesystem.assertSafeOutput("/")
+    }, "refusing unsafe output directory")
+}
+
+fn main() {
+    println("=== Aja test suite ===")
+    testConfig()
+    testFrontMatter()
+    testMarkdown()
+    testTemplate()
+    testOutputGuard()
+    println("Aja tests passed")
+}

@@ -1,0 +1,104 @@
+import "std/path"
+import "model"
+
+fn parseBool(value: string, fallback: bool) -> bool {
+    mut normalized = toLower(trim(value))
+    if normalized == "true" || normalized == "yes" { return true }
+    if normalized == "false" || normalized == "no" { return false }
+    fallback
+}
+
+fn parseInteger(value: string, fallback: int) -> int {
+    try {
+        parseInt(trim(value))
+    } catch e {
+        fallback
+    }
+}
+
+fn parseTags(value: string) -> string[] {
+    mut tags: string[] = []
+    for candidate in split(value, ",") {
+        mut tag = trim(candidate)
+        if len(tag) > 0 { push(tags, tag) }
+    }
+    tags
+}
+
+fn slugify(value: string) -> string {
+    mut result = ""
+    mut pendingDash = false
+    mut normalized = toLower(trim(value))
+    for i in range(0, len(normalized)) {
+        mut ch = substring(normalized, i, i + 1)
+        mut code = ord(ch)
+        mut isLetter = code >= 97 && code <= 122
+        mut isNumber = code >= 48 && code <= 57
+        if isLetter || isNumber {
+            if pendingDash && len(result) > 0 { result += "-" }
+            result += ch
+            pendingDash = false
+        } else {
+            pendingDash = true
+        }
+    }
+    if len(result) == 0 { return "untitled" }
+    result
+}
+
+fn parse(sourcePath: string, relativePath: string, source: string) -> Page {
+    mut page = model.emptyPage(sourcePath, relativePath)
+    mut values = map()
+    mut lines = split(source, "\n")
+    mut bodyStart = 0
+
+    if len(lines) > 0 && trim(lines[0]) == "---" {
+        mut foundEnd = false
+        for i in range(1, len(lines)) {
+            if !foundEnd && trim(lines[i]) == "---" {
+                bodyStart = i + 1
+                foundEnd = true
+            } else if !foundEnd {
+                mut separator = indexOf(lines[i], ":")
+                if separator > 0 {
+                    mut key = toLower(trim(substring(lines[i], 0, separator)))
+                    mut value = trim(substring(lines[i], separator + 1, len(lines[i])))
+                    values.set(key, value)
+                }
+            }
+        }
+        if !foundEnd { error("unclosed front matter in " + sourcePath) }
+    }
+
+    mut body = ""
+    for i in range(bodyStart, len(lines)) {
+        if i > bodyStart { body += "\n" }
+        body += lines[i]
+    }
+
+    mut fallbackSlug = path.stem(relativePath)
+    page.slug = slugify(fallbackSlug)
+    page.title = replace(fallbackSlug, "-", " ")
+    page.rawBody = body
+
+    if values.has("slug") { page.slug = slugify(toString(values.get("slug"))) }
+    if values.has("title") { page.title = toString(values.get("title")) }
+    if values.has("description") { page.description = toString(values.get("description")) }
+    if values.has("date") { page.date = toString(values.get("date")) }
+    if values.has("draft") { page.draft = parseBool(toString(values.get("draft")), false) }
+    if values.has("weight") { page.weight = parseInteger(toString(values.get("weight")), 0) }
+    if values.has("tags") { page.tags = parseTags(toString(values.get("tags"))) }
+    if values.has("template") { page.templateName = toString(values.get("template")) }
+
+    if values.has("kind") && toLower(toString(values.get("kind"))) == "page" {
+        page.kind = PageKind.Page
+        if !values.has("template") { page.templateName = "page.html" }
+        page.url = "/" + page.slug + "/"
+        page.outputPath = page.slug + "/index.html"
+    } else {
+        page.kind = PageKind.Post
+        page.url = "/posts/" + page.slug + "/"
+        page.outputPath = "posts/" + page.slug + "/index.html"
+    }
+    page
+}

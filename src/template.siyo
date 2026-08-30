@@ -1,0 +1,75 @@
+import "std/html"
+import "std/io"
+import "std/path"
+import "model"
+
+fn apply(source: string, values: map) -> string {
+    mut result = source
+    for keyValue in values.keys() {
+        mut key = toString(keyValue)
+        mut value = toString(values.get(key))
+        result = replace(result, "{{" + key + "}}", value)
+        result = replace(result, "{{ " + key + " }}", value)
+    }
+    result
+}
+
+fn renderTags(tags: string[]) -> string {
+    if len(tags) == 0 { return "" }
+    mut output = "<ul class=\"tags\" aria-label=\"Tags\">"
+    for tag in tags {
+        mut encoded = replace(toLower(tag), " ", "-")
+        output += "<li><a href=\"/tags/" + html.escapeAttr(encoded) + "/\">" + html.escape(tag) + "</a></li>"
+    }
+    output + "</ul>"
+}
+
+fn pageValues(config: SiteConfig, page: Page) -> map {
+    mut values = map()
+    values.set("site_title", html.escape(config.title))
+    values.set("site_tagline", html.escape(config.tagline))
+    values.set("site_description", html.escapeAttr(config.description))
+    values.set("site_author", html.escape(config.author))
+    values.set("language", html.escapeAttr(config.language))
+    values.set("title", html.escape(page.title))
+    values.set("description", html.escapeAttr(page.description))
+    values.set("date", html.escape(page.date))
+    values.set("canonical_url", html.escapeAttr(config.baseUrl + page.url))
+    values.set("url", html.escapeAttr(page.url))
+    values.set("content", page.renderedBody)
+    values.set("tags", renderTags(page.tags))
+    values
+}
+
+fn loadTemplate(config: SiteConfig, name: string) -> string {
+    if contains(name, "..") || contains(name, "/") || contains(name, "\\") {
+        error("unsafe template name: " + name)
+    }
+    mut templatePath = path.join(config.templatesDir, name)
+    if !io.exists(templatePath) { error("template not found: " + templatePath) }
+    io.readFile(templatePath)
+}
+
+fn renderPage(config: SiteConfig, page: Page) -> string {
+    mut values = pageValues(config, page)
+    mut inner = apply(loadTemplate(config, page.templateName), values)
+    values.set("content", inner)
+    apply(loadTemplate(config, "base.html"), values)
+}
+
+fn renderDocument(config: SiteConfig, title: string, description: string, url: string, body: string) -> string {
+    mut values = map()
+    values.set("site_title", html.escape(config.title))
+    values.set("site_tagline", html.escape(config.tagline))
+    values.set("site_description", html.escapeAttr(config.description))
+    values.set("site_author", html.escape(config.author))
+    values.set("language", html.escapeAttr(config.language))
+    values.set("title", html.escape(title))
+    values.set("description", html.escapeAttr(description))
+    values.set("canonical_url", html.escapeAttr(config.baseUrl + url))
+    values.set("url", html.escapeAttr(url))
+    values.set("date", "")
+    values.set("tags", "")
+    values.set("content", body)
+    apply(loadTemplate(config, "base.html"), values)
+}

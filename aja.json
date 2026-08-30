@@ -1,0 +1,15 @@
+{
+  "title": "Aja",
+  "tagline": "A static site generator written in Siyo.",
+  "description": "Aja turns Markdown, templates and static assets into a deployable static site. Written entirely in Siyo.",
+  "author": "Siyabend Ürün",
+  "language": "en",
+  "base_url": "http://localhost:4173",
+  "content_dir": "content",
+  "templates_dir": "templates",
+  "static_dir": "static",
+  "output_dir": "dist",
+  "posts_per_page": 5,
+  "include_drafts": false,
+  "port": 4173
+}

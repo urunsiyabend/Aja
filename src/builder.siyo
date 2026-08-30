@@ -1,0 +1,128 @@
+import java "java.lang.System"
+import "std/html"
+import "content"
+import "feed"
+import "filesystem"
+import "model"
+import "template"
+
+fn postList(pages: Page[], start: int, finish: int) -> string {
+    mut output = "<ol class=\"post-list\">\n"
+    mut upper = finish
+    if upper > len(pages) { upper = len(pages) }
+    for i in range(start, upper) {
+        mut page = pages[i]
+        if !page.isPost() { continue }
+        output += "  <li class=\"post-item\">\n"
+        output += "    <time datetime=\"" + html.escapeAttr(page.date) + "\">" + html.escape(page.date) + "</time>\n"
+        output += "    <h3><a href=\"" + html.escapeAttr(page.url) + "\">" + html.escape(page.title) + "</a></h3>\n"
+        if len(page.description) > 0 {
+            output += "    <p>" + html.escape(page.description) + "</p>\n"
+        }
+        output += "  </li>\n"
+    }
+    output + "</ol>\n"
+}
+
+fn onlyPosts(pages: Page[]) -> Page[] {
+    mut posts: Page[] = []
+    for page in pages {
+        if page.isPost() { push(posts, page) }
+    }
+    posts
+}
+
+fn pagination(current: int, count: int) -> string {
+    if count <= 1 { return "" }
+    mut output = "<nav class=\"pagination\" aria-label=\"Pagination\">"
+    for number in range(1, count + 1) {
+        mut href = if number == 1 { "/" } else { "/page/" + toString(number) + "/" }
+        if number == current {
+            output += "<strong aria-current=\"page\">" + toString(number) + "</strong>"
+        } else {
+            output += "<a href=\"" + href + "\">" + toString(number) + "</a>"
+        }
+    }
+    output + "</nav>"
+}
+
+fn buildIndexes(config: SiteConfig, pages: Page[]) {
+    mut posts = onlyPosts(pages)
+    mut perPage = config.postsPerPage
+    if perPage < 1 { perPage = 10 }
+    mut pageCount = (len(posts) + perPage - 1) / perPage
+    if pageCount < 1 { pageCount = 1 }
+
+    for number in range(1, pageCount + 1) {
+        mut start = (number - 1) * perPage
+        mut body = "<section class=\"hero\">\n"
+        body += "  <h1>" + html.escape(config.title) + "</h1>\n"
+        body += "  <p class=\"lede\">" + html.escape(config.tagline) + "</p>\n"
+        body += "</section>\n"
+        body += "<h2 class=\"section-title\">Latest posts</h2>\n"
+        body += postList(posts, start, start + perPage)
+        body += pagination(number, pageCount)
+        mut relative = if number == 1 { "index.html" } else { "page/" + toString(number) + "/index.html" }
+        mut url = if number == 1 { "/" } else { "/page/" + toString(number) + "/" }
+        filesystem.writeText(config.outputDir, relative, template.renderDocument(config, config.title, config.description, url, body))
+    }
+}
+
+fn uniqueTags(pages: Page[]) -> string[] {
+    mut result: string[] = []
+    for page in pages {
+        for tag in page.tags {
+            mut found = false
+            for existing in result {
+                if toLower(existing) == toLower(tag) { found = true }
+            }
+            if !found { push(result, tag) }
+        }
+    }
+    sort(result, fn(a: string, b: string) -> int {
+        if a < b { return -1 }
+        if a > b { return 1 }
+        0
+    })
+    result
+}
+
+fn buildTagPages(config: SiteConfig, pages: Page[]) {
+    for tag in uniqueTags(pages) {
+        mut matching: Page[] = []
+        for page in pages {
+            if page.hasTag(tag) { push(matching, page) }
+        }
+        mut slug = replace(toLower(tag), " ", "-")
+        mut body = "<section class=\"hero hero-compact\">\n"
+        body += "  <p class=\"eyebrow\">Tag</p>\n"
+        body += "  <h1>" + html.escape(tag) + "</h1>\n"
+        body += "</section>\n"
+        body += postList(matching, 0, len(matching))
+        filesystem.writeText(config.outputDir, "tags/" + slug + "/index.html", template.renderDocument(config, "Tag: " + tag, config.description, "/tags/" + slug + "/", body))
+    }
+}
+
+fn build(config: SiteConfig) -> BuildStats {
+    mut started = System.currentTimeMillis()
+    filesystem.clean(config.outputDir)
+    mut loaded = content.load(config)
+    mut stats = model.emptyStats()
+    stats.discovered = loaded.discovered
+    stats.skippedDrafts = loaded.skippedDrafts
+
+    for page in loaded.pages {
+        filesystem.writeText(config.outputDir, page.outputPath, template.renderPage(config, page))
+        stats.rendered += 1
+    }
+
+    buildIndexes(config, loaded.pages)
+    buildTagPages(config, loaded.pages)
+    filesystem.writeText(config.outputDir, "feed.xml", feed.rss(config, loaded.pages))
+    filesystem.writeText(config.outputDir, "sitemap.xml", feed.sitemap(config, loaded.pages))
+    filesystem.writeText(config.outputDir, "search.json", feed.searchIndex(loaded.pages))
+    filesystem.writeText(config.outputDir, "robots.txt", "User-agent: *\nAllow: /\nSitemap: " + config.baseUrl + "/sitemap.xml\n")
+    stats.copiedAssets = filesystem.copyTree(config.staticDir, config.outputDir)
+    stats.elapsedMillis = System.currentTimeMillis() - started
+    stats
+}

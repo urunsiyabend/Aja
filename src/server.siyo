@@ -1,0 +1,131 @@
+import java "java.net.ServerSocket"
+import java "java.net.URLDecoder"
+import java "java.io.BufferedReader"
+import java "java.io.InputStreamReader"
+import java "java.io.File"
+import java "java.io.FileInputStream"
+
+fn mimeType(path: string) -> string {
+    mut lowered = toLower(path)
+    if endsWith(lowered, ".html") { return "text/html; charset=utf-8" }
+    if endsWith(lowered, ".css") { return "text/css; charset=utf-8" }
+    if endsWith(lowered, ".js") { return "text/javascript; charset=utf-8" }
+    if endsWith(lowered, ".json") { return "application/json; charset=utf-8" }
+    if endsWith(lowered, ".xml") { return "application/xml; charset=utf-8" }
+    if endsWith(lowered, ".svg") { return "image/svg+xml" }
+    if endsWith(lowered, ".png") { return "image/png" }
+    if endsWith(lowered, ".jpg") || endsWith(lowered, ".jpeg") { return "image/jpeg" }
+    if endsWith(lowered, ".webp") { return "image/webp" }
+    "application/octet-stream"
+}
+
+fn reason(status: int) -> string {
+    match status {
+        200 => "OK",
+        400 => "Bad Request",
+        403 => "Forbidden",
+        404 => "Not Found",
+        500 => "Internal Server Error",
+        _ => "Unknown"
+    }
+}
+
+fn sendText(socket: object, status: int, body: string) {
+    mut bytes = body.getBytes("UTF-8")
+    mut header = "HTTP/1.1 " + toString(status) + " " + reason(status) + "\r\n"
+    header += "Content-Type: text/plain; charset=utf-8\r\n"
+    header += "Content-Length: " + toString(len(bytes)) + "\r\n"
+    header += "Connection: close\r\n\r\n"
+    mut output = socket.getOutputStream()
+    output.write(header.getBytes("UTF-8"))
+    output.write(bytes)
+    output.flush()
+}
+
+fn sendFile(socket: object, file: File) {
+    mut header = "HTTP/1.1 200 OK\r\n"
+    header += "Content-Type: " + mimeType(file.getName()) + "\r\n"
+    header += "Content-Length: " + toString(file.length()) + "\r\n"
+    header += "Cache-Control: no-cache\r\n"
+    header += "Connection: close\r\n\r\n"
+    mut output = socket.getOutputStream()
+    output.write(header.getBytes("UTF-8"))
+    mut input = FileInputStream.new(file)
+    input.transferTo(output)
+    input.close()
+    output.flush()
+}
+
+fn requestTarget(line: string) -> string {
+    mut parts = split(line, " ")
+    if len(parts) < 2 { return "" }
+    mut target = parts[1]
+    mut query = indexOf(target, "?")
+    if query >= 0 { target = substring(target, 0, query) }
+    URLDecoder.decode(target, "UTF-8")
+}
+
+fn handleClient(socket: object, rootPath: string) {
+    mut status = 500
+    try {
+        mut reader = BufferedReader.new(InputStreamReader.new(socket.getInputStream()))
+        mut line = reader.readLine()
+        if line == null {
+            status = 400
+            sendText(socket, status, "empty request\n")
+        } else {
+            mut target = requestTarget(line)
+            if len(target) == 0 {
+                status = 400
+                sendText(socket, status, "bad request\n")
+            } else if len(target) > 1024 {
+                // Reject before touching the filesystem so an over-long path
+                // never reaches the OS as an opaque IO failure.
+                status = 400
+                sendText(socket, status, "path too long\n")
+            } else if contains(target, chr(0)) {
+                status = 400
+                sendText(socket, status, "bad request\n")
+            } else if target == "/__aja/status" {
+                status = 200
+                sendText(socket, status, "Aja development server\n")
+            } else {
+                if target == "/" { target = "/index.html" }
+                if endsWith(target, "/") { target += "index.html" }
+                while startsWith(target, "/") { target = substring(target, 1, len(target)) }
+
+                mut root = File.new(rootPath).getCanonicalFile()
+                mut candidate = File.new(root, target).getCanonicalFile()
+                mut rootPrefix = root.getPath() + File.separator
+                if candidate.getPath() != root.getPath() && !startsWith(candidate.getPath(), rootPrefix) {
+                    status = 403
+                    sendText(socket, status, "forbidden\n")
+                } else if !candidate.isFile() {
+                    status = 404
+                    sendText(socket, status, "not found\n")
+                } else {
+                    status = 200
+                    sendFile(socket, candidate)
+                }
+            }
+        }
+        reader.close()
+    } catch e {
+        println("request error: " + e)
+        try { sendText(socket, 500, "internal server error\n") } catch ignored { }
+        status = 500
+    }
+    socket.close()
+}
+
+fn serve(rootPath: string, port: int) {
+    mut listener = ServerSocket.new(port)
+    println("Aja development server: http://localhost:" + toString(port))
+    println("Press Ctrl+C to stop.")
+    while true {
+        mut client = listener.accept()
+        spawn {
+            handleClient(client, rootPath)
+        }
+    }
+}

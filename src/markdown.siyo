@@ -1,0 +1,221 @@
+import "std/html"
+
+struct RenderState {
+    output: string,
+    paragraph: string,
+    listType: string,
+    inFence: bool,
+    fenceLanguage: string,
+    fenceBody: string
+}
+
+impl RenderState {
+    fn flushParagraph(self) {
+        if len(self.paragraph) == 0 { return }
+        self.output += "<p>" + inline(self.paragraph) + "</p>\n"
+        self.paragraph = ""
+    }
+
+    fn closeList(self) {
+        if len(self.listType) == 0 { return }
+        self.output += "</" + self.listType + ">\n"
+        self.listType = ""
+    }
+
+    fn openList(self, wanted: string) {
+        if self.listType == wanted { return }
+        self.closeList()
+        self.output += "<" + wanted + ">\n"
+        self.listType = wanted
+    }
+
+    fn flushFence(self) {
+        mut languageClass = ""
+        if len(self.fenceLanguage) > 0 {
+            languageClass = " class=\"language-" + safeToken(self.fenceLanguage) + "\""
+        }
+        self.output += "<pre><code" + languageClass + ">" + html.escape(self.fenceBody) + "</code></pre>\n"
+        self.fenceBody = ""
+        self.fenceLanguage = ""
+        self.inFence = false
+    }
+}
+
+fn safeToken(value: string) -> string {
+    mut result = ""
+    mut normalized = toLower(value)
+    for i in range(0, len(normalized)) {
+        mut ch = substring(normalized, i, i + 1)
+        mut n = ord(ch)
+        if (n >= 97 && n <= 122) || (n >= 48 && n <= 57) || ch == "-" || ch == "_" {
+            result += ch
+        }
+    }
+    result
+}
+
+fn safeUrl(value: string) -> string {
+    mut url = trim(value)
+    if startsWith(url, "https://") || startsWith(url, "http://") { return url }
+    if startsWith(url, "/") || startsWith(url, "#") || startsWith(url, "mailto:") { return url }
+    "#"
+}
+
+fn paired(text: string, delimiter: string, openTag: string, closeTag: string) -> string {
+    mut result = ""
+    mut remaining = text
+    mut isOpen = false
+    while contains(remaining, delimiter) {
+        mut at = indexOf(remaining, delimiter)
+        result += substring(remaining, 0, at)
+        if isOpen { result += closeTag } else { result += openTag }
+        isOpen = !isOpen
+        remaining = substring(remaining, at + len(delimiter), len(remaining))
+    }
+    result += remaining
+    if isOpen { result += closeTag }
+    result
+}
+
+fn links(text: string) -> string {
+    mut result = ""
+    mut remaining = text
+    while contains(remaining, "[") {
+        mut openBracket = indexOf(remaining, "[")
+        result += substring(remaining, 0, openBracket)
+        mut tail = substring(remaining, openBracket + 1, len(remaining))
+        mut closeBracket = indexOf(tail, "](")
+        if closeBracket < 0 {
+            result += "["
+            remaining = tail
+            continue
+        }
+        mut label = substring(tail, 0, closeBracket)
+        mut afterLabel = substring(tail, closeBracket + 2, len(tail))
+        mut closeParen = indexOf(afterLabel, ")")
+        if closeParen < 0 {
+            result += "[" + label + "](" 
+            remaining = afterLabel
+            continue
+        }
+        mut target = safeUrl(substring(afterLabel, 0, closeParen))
+        result += "<a href=\"" + html.escapeAttr(target) + "\">" + label + "</a>"
+        remaining = substring(afterLabel, closeParen + 1, len(afterLabel))
+    }
+    result + remaining
+}
+
+fn inline(value: string) -> string {
+    mut result = html.escape(value)
+    result = paired(result, "`", "<code>", "</code>")
+    result = links(result)
+    result = paired(result, "**", "<strong>", "</strong>")
+    result = paired(result, "*", "<em>", "</em>")
+    result
+}
+
+fn isDigits(value: string) -> bool {
+    if len(value) == 0 { return false }
+    for i in range(0, len(value)) {
+        mut ch = substring(value, i, i + 1)
+        mut n = ord(ch)
+        if n < 48 || n > 57 { return false }
+    }
+    true
+}
+
+fn orderedItemBody(line: string) -> string {
+    mut marker = indexOf(line, ". ")
+    if marker <= 0 { return "" }
+    if !isDigits(substring(line, 0, marker)) { return "" }
+    substring(line, marker + 2, len(line))
+}
+
+fn render(markdown: string) -> string {
+    mut state = RenderState {
+        output: "",
+        paragraph: "",
+        listType: "",
+        inFence: false,
+        fenceLanguage: "",
+        fenceBody: ""
+    }
+
+    for line in split(markdown, "\n") {
+        mut stripped = trim(line)
+
+        if state.inFence {
+            if startsWith(stripped, "```") {
+                state.flushFence()
+            } else {
+                if len(state.fenceBody) > 0 { state.fenceBody += "\n" }
+                state.fenceBody += line
+            }
+            continue
+        }
+
+        if startsWith(stripped, "```") {
+            state.flushParagraph()
+            state.closeList()
+            state.inFence = true
+            state.fenceLanguage = trim(substring(stripped, 3, len(stripped)))
+            continue
+        }
+
+        if len(stripped) == 0 {
+            state.flushParagraph()
+            state.closeList()
+            continue
+        }
+
+        if stripped == "---" || stripped == "***" {
+            state.flushParagraph()
+            state.closeList()
+            state.output += "<hr>\n"
+            continue
+        }
+
+        mut headingLevel = 0
+        while headingLevel < len(stripped) && headingLevel < 6 && substring(stripped, headingLevel, headingLevel + 1) == "#" {
+            headingLevel += 1
+        }
+        if headingLevel > 0 && headingLevel < len(stripped) && substring(stripped, headingLevel, headingLevel + 1) == " " {
+            state.flushParagraph()
+            state.closeList()
+            mut headingText = substring(stripped, headingLevel + 1, len(stripped))
+            mut level = toString(headingLevel)
+            state.output += "<h" + level + ">" + inline(headingText) + "</h" + level + ">\n"
+            continue
+        }
+
+        if startsWith(stripped, "> ") {
+            state.flushParagraph()
+            state.closeList()
+            state.output += "<blockquote><p>" + inline(substring(stripped, 2, len(stripped))) + "</p></blockquote>\n"
+            continue
+        }
+
+        if startsWith(stripped, "- ") || startsWith(stripped, "* ") {
+            state.flushParagraph()
+            state.openList("ul")
+            state.output += "<li>" + inline(substring(stripped, 2, len(stripped))) + "</li>\n"
+            continue
+        }
+
+        mut orderedBody = orderedItemBody(stripped)
+        if len(orderedBody) > 0 {
+            state.flushParagraph()
+            state.openList("ol")
+            state.output += "<li>" + inline(orderedBody) + "</li>\n"
+            continue
+        }
+
+        if len(state.paragraph) > 0 { state.paragraph += " " }
+        state.paragraph += stripped
+    }
+
+    if state.inFence { state.flushFence() }
+    state.flushParagraph()
+    state.closeList()
+    state.output
+}

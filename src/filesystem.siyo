@@ -1,0 +1,53 @@
+import "std/io"
+import "std/path"
+
+fn assertSafeOutput(outputDir: string) {
+    mut value = trim(outputDir)
+    if len(value) == 0 || value == "." || value == "/" || value == ".." {
+        error("refusing unsafe output directory: " + outputDir)
+    }
+    if startsWith(value, "/") || contains(value, "../") || contains(value, "..\\") {
+        error("output directory must stay inside the project: " + outputDir)
+    }
+}
+
+fn removeTree(target: string) {
+    if !io.exists(target) { return }
+    if io.isFile(target) {
+        if !io.delete(target) { error("could not delete file: " + target) }
+        return
+    }
+    for name in io.listDir(target) {
+        removeTree(path.join(target, name))
+    }
+    if !io.delete(target) { error("could not delete directory: " + target) }
+}
+
+fn clean(outputDir: string) {
+    assertSafeOutput(outputDir)
+    removeTree(outputDir)
+}
+
+fn ensureParent(filePath: string) {
+    mut parentDir = path.parent(filePath)
+    if len(parentDir) > 0 { io.mkdir(parentDir) }
+}
+
+fn writeText(root: string, relative: string, value: string) {
+    mut destination = path.join(root, relative)
+    ensureParent(destination)
+    io.writeFile(destination, value)
+}
+
+fn copyTree(sourceRoot: string, destinationRoot: string) -> int {
+    if !io.exists(sourceRoot) { return 0 }
+    mut copied = 0
+    for relative in io.walk(sourceRoot) {
+        mut source = path.join(sourceRoot, relative)
+        mut destination = path.join(destinationRoot, relative)
+        ensureParent(destination)
+        io.copyFile(source, destination)
+        copied += 1
+    }
+    copied
+}
