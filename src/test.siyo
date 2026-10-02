@@ -1,10 +1,12 @@
 import "std/testing"
 import "config"
+import "config_tests"
 import "filesystem"
 import "frontmatter"
 import "markdown"
 import "model"
 import "template"
+import "table_tests"
 
 fn testConfig() {
     mut cfg = config.load("aja.json")
@@ -49,8 +51,10 @@ fn testOutputGuard() {
 fn main() {
     println("=== Aja test suite ===")
     testConfig()
+    config_tests.main()
     testFrontMatter()
     testMarkdown()
+    table_tests.main()
     testTemplate()
     testOutputGuard()
     println("Aja tests passed")

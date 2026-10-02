@@ -13,7 +13,7 @@ arrive from different directions, and Aja focuses them into a single output.
 
 ## Requirements
 
-- [Siyo 0.4.0](https://github.com/urunsiyabend/SiyoCompiler/releases) or newer
+- [Siyo 0.7.0](https://github.com/urunsiyabend/SiyoCompiler/releases) (the tested toolchain)
 - `siyoc` on your `PATH`
 
 ## Quick start
@@ -55,11 +55,13 @@ which makes `./aja check && ./aja build` a usable CI gate.
 - Posts, pages and drafts, with per-document template selection
 - Headings, paragraphs, lists, blockquotes, horizontal rules, fenced code and
   inline Markdown
+- Pipe tables with column alignment and escaped, inline-formatted cells
 - HTML escaping everywhere, plus link-scheme filtering
 - Paginated post indexes and generated tag archives
 - RSS 2.0, XML sitemap, `robots.txt` and a JSON search index
 - Recursive, binary-safe static asset copying
 - A concurrent development server with canonical-path traversal protection
+- Strict JSON configuration parsing with typed errors and readable CLI diagnostics
 
 ## Writing content
 
@@ -83,6 +85,21 @@ Supported keys are `title`, `description`, `date`, `tags`, `draft`, `kind`,
 `slug`, `weight` and `template`. Set `kind: page` for a standalone page; any
 other document is a post. `content/notes/deep-dive.md` becomes
 `/notes/deep-dive/`; `slug` overrides the last segment.
+
+### Markdown tables
+
+```md
+| Feature | Status |
+| :--- | ---: |
+| **Tables** | Supported |
+| Typed configuration errors | Supported |
+```
+
+Outer pipes are optional. `:---`, `:---:` and `---:` align a column left,
+center and right. Separators need at least three hyphens per column. Short
+rows are padded with empty cells; extra cells are discarded. This is a small
+pipe-table subset: literal/escaped pipes in cells and multiline cells are not
+supported.
 
 ## Templates
 
@@ -141,6 +158,7 @@ siyo.toml    Siyo project manifest
 siyoc test       # run the Siyo test suite in src/test.siyo
 ./aja check      # validate the example site
 ./aja build      # regenerate dist/
+python3 scripts/verify.py  # isolated CLI and generated-artifact verification
 ```
 
 The default theme is a single dependency-free stylesheet in
@@ -151,7 +169,12 @@ generator will not notice.
 
 ## Known limitations
 
-- The Markdown subset is deliberately small: no tables, footnotes or reference
+The official Siyo v0.7.0 Linux archive currently reports `siyoc 0.6.0` from
+`--version`. CI pins the v0.7.0 release archive; Aja's requirements refer to
+that release, not the stale version banner. Use `siyoc test` / `siyoc run`;
+the release's interpreter has a typed-error payload incompatibility.
+
+- The Markdown subset is deliberately small: no footnotes or reference
   links.
 - Templates have no conditionals or loops; anything dynamic belongs in `src/`.
 - The development server is for local previews, not production hosting.

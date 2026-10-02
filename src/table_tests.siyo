@@ -1,0 +1,56 @@
+import "std/testing"
+import "markdown"
+
+fn testBasicTable() {
+    testing.assertEqual(markdown.render("| Name | Value |\n| --- | --- |\n| Aja | Siyo |"), "<table>\n<thead>\n<tr><th>Name</th><th>Value</th></tr>\n</thead>\n<tbody>\n<tr><td>Aja</td><td>Siyo</td></tr>\n</tbody>\n</table>\n", "renders header separator and body")
+}
+
+fn testAlignment() {
+    mut output = markdown.render("Left | Center | Right | Default\n:--- | :----: | ---: | -----\na | b | c | d")
+    testing.assert(contains(output, "<th style=\"text-align: left\">Left</th><th style=\"text-align: center\">Center</th><th style=\"text-align: right\">Right</th><th>Default</th>"), "aligns headers with optional outer pipes")
+    testing.assert(contains(output, "<td style=\"text-align: left\">a</td><td style=\"text-align: center\">b</td><td style=\"text-align: right\">c</td><td>d</td>"), "aligns body cells")
+}
+
+fn testRaggedRows() {
+    mut output = markdown.render("A | B | C\n--- | --- | ---\n| one |\nx | y | z | extra\n| | middle | |")
+    testing.assert(contains(output, "<tr><td>one</td><td></td><td></td></tr>"), "pads short rows to header width")
+    testing.assert(contains(output, "<tr><td>x</td><td>y</td><td>z</td></tr>"), "truncates extra cells")
+    testing.assert(!contains(output, "extra"), "does not emit extra cells")
+    testing.assert(contains(output, "<tr><td></td><td>middle</td><td></td></tr>"), "preserves empty cells")
+}
+
+fn testSafeInlineCells() {
+    mut output = markdown.render("**Title** | <script>\n--- | ---\n*value* & <img> | `code` [bad](javascript:evil)")
+    testing.assert(contains(output, "<th><strong>Title</strong></th><th>&lt;script&gt;</th>"), "formats and escapes headers")
+    testing.assert(contains(output, "<td><em>value</em> &amp; &lt;img&gt;</td>"), "formats and escapes body")
+    testing.assert(contains(output, "<code>code</code> <a href=\"#\">bad</a>"), "uses existing safe inline link rendering")
+}
+
+fn testInvalidSeparators() {
+    for separator in ["-- | ---", "--- | --x", "--- | :--:", "--- | --- | ---", "--- | ", "--- | - - -", "--- | :::"] {
+        mut source = "A | B\n" + separator + "\nx | y"
+        testing.assertEqual(markdown.render(source), "<p>A | B " + trim(separator) + " x | y</p>\n", "invalid separator stays ordinary markdown")
+    }
+}
+
+fn testFencedTable() {
+    testing.assertEqual(markdown.render("```\nA | B\n--- | ---\nx | y\n```"), "<pre><code>A | B\n--- | ---\nx | y</code></pre>\n", "table syntax inside fence remains code")
+}
+
+fn testTableTermination() {
+    mut prefix = "A | B\n--- | ---\nx | y\n"
+    testing.assert(contains(markdown.render(prefix + "Next paragraph"), "</table>\n<p>Next paragraph</p>"), "preserves following paragraph")
+    testing.assert(contains(markdown.render(prefix + "- next | item"), "</table>\n<ul>\n<li>next | item</li>\n</ul>"), "preserves following list containing pipe")
+    testing.assert(contains(markdown.render(prefix + "```text|pipe\nA | B\n--- | ---\n```"), "</table>\n<pre><code class=\"language-textpipe\">A | B\n--- | ---</code></pre>"), "following pipe-bearing fence is not a table row")
+}
+
+fn main() {
+    testBasicTable()
+    testAlignment()
+    testRaggedRows()
+    testSafeInlineCells()
+    testInvalidSeparators()
+    testFencedTable()
+    testTableTermination()
+    println("Table tests passed")
+}

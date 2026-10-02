@@ -131,6 +131,48 @@ fn orderedItemBody(line: string) -> string {
     substring(line, marker + 2, len(line))
 }
 
+fn tableCells(line: string) -> string[] {
+    mut row = trim(line)
+    if startsWith(row, "|") { row = substring(row, 1, len(row)) }
+    if endsWith(row, "|") { row = substring(row, 0, len(row) - 1) }
+    mut cells: string[] = []
+    for cell in split(row, "|") { push(cells, trim(cell)) }
+    cells
+}
+
+fn tableSeparator(line: string, width: int) -> bool {
+    if !contains(line, "|") { return false }
+    mut cells = tableCells(line)
+    if len(cells) != width { return false }
+    for cell in cells {
+        mut marker = cell
+        if startsWith(marker, ":") { marker = substring(marker, 1, len(marker)) }
+        if endsWith(marker, ":") { marker = substring(marker, 0, len(marker) - 1) }
+        if len(marker) < 3 { return false }
+        for i in range(0, len(marker)) {
+            if substring(marker, i, i + 1) != "-" { return false }
+        }
+    }
+    true
+}
+
+fn tableRow(cells: string[], tag: string, separators: string[]) -> string {
+    mut result = "<tr>"
+    for i in range(0, len(separators)) {
+        mut alignment = ""
+        mut marker = separators[i]
+        if startsWith(marker, ":") && endsWith(marker, ":") { alignment = "center" }
+        else if startsWith(marker, ":") { alignment = "left" }
+        else if endsWith(marker, ":") { alignment = "right" }
+        mut attribute = ""
+        if len(alignment) > 0 { attribute = " style=\"text-align: " + alignment + "\"" }
+        mut cell = ""
+        if i < len(cells) { cell = cells[i] }
+        result += "<" + tag + attribute + ">" + inline(cell) + "</" + tag + ">"
+    }
+    result + "</tr>\n"
+}
+
 fn render(markdown: string) -> string {
     mut state = RenderState {
         output: "",
@@ -141,7 +183,11 @@ fn render(markdown: string) -> string {
         fenceBody: ""
     }
 
-    for line in split(markdown, "\n") {
+    mut lines = split(markdown, "\n")
+    mut lineIndex = 0
+    while lineIndex < len(lines) {
+        mut line = lines[lineIndex]
+        lineIndex += 1
         mut stripped = trim(line)
 
         if state.inFence {
@@ -160,6 +206,26 @@ fn render(markdown: string) -> string {
             state.inFence = true
             state.fenceLanguage = trim(substring(stripped, 3, len(stripped)))
             continue
+        }
+
+        if contains(stripped, "|") && lineIndex < len(lines) {
+            mut headers = tableCells(stripped)
+            if tableSeparator(lines[lineIndex], len(headers)) {
+                state.flushParagraph()
+                state.closeList()
+                mut separators = tableCells(lines[lineIndex])
+                lineIndex += 1
+                state.output += "<table>\n<thead>\n" + tableRow(headers, "th", separators) + "</thead>\n<tbody>\n"
+                while lineIndex < len(lines) && contains(lines[lineIndex], "|") {
+                    mut rowLine = trim(lines[lineIndex])
+                    if startsWith(rowLine, "```") { break }
+                    if startsWith(rowLine, "- ") || startsWith(rowLine, "* ") || len(orderedItemBody(rowLine)) > 0 { break }
+                    state.output += tableRow(tableCells(lines[lineIndex]), "td", separators)
+                    lineIndex += 1
+                }
+                state.output += "</tbody>\n</table>\n"
+                continue
+            }
         }
 
         if len(stripped) == 0 {

@@ -4,6 +4,25 @@ All notable changes to Aja are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Require and test against the official Siyo v0.7.0 toolchain.
+- Handle `std/json`'s `Parsed` / `Invalid` result explicitly instead of
+  treating it as a map.
+- Export only `ConfigError`, `config.load` and `config.parse` from the
+  configuration module using Siyo's `pub` visibility.
+
+### Added
+
+- Markdown pipe tables with optional outer pipes, left/center/right alignment,
+  inline formatting, HTML escaping and deterministic ragged-row handling.
+- Typed configuration errors preserve the source path and parser diagnostic;
+  CLI commands print a readable error and exit non-zero without a stack trace.
+- Configuration regressions and isolated CLI integration verification covering
+  generated HTML, JSON/XML, binary-safe assets, drafts and invalid-input safety.
+
 ## 0.1.0 — 2026-08-30
 
 First release. Aja is a static site generator written entirely in Siyo,

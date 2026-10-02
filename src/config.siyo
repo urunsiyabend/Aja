@@ -2,6 +2,11 @@ import "std/io"
 import "std/json"
 import "model"
 
+pub struct ConfigError {
+    path: string,
+    message: string
+}
+
 fn stringValue(values: map, key: string, fallback: string) -> string {
     if !values.has(key) { return fallback }
     mut value = toString(values.get(key))
@@ -26,14 +31,25 @@ fn boolValue(values: map, key: string, fallback: bool) -> bool {
     fallback
 }
 
-fn load(path: string) -> SiteConfig {
+pub fn load(path: string) -> SiteConfig {
     mut defaults = model.defaultConfig()
     if !io.exists(path) {
         println("warning: " + path + " not found; using defaults")
         return defaults
     }
 
-    mut values = json.parse(io.readFile(path))
+    parse(io.readFile(path), path)
+}
+
+pub fn parse(source: string, path: string) -> SiteConfig {
+    mut defaults = model.defaultConfig()
+    mut values: map = match json.parse(source) {
+        Parsed(settings) => settings,
+        Invalid(reason) => {
+            throw ConfigError { path: path, message: "invalid configuration " + path + ": " + toString(reason) }
+            map()
+        }
+    }
     SiteConfig {
         title: stringValue(values, "title", defaults.title),
         tagline: stringValue(values, "tagline", defaults.tagline),

@@ -1,0 +1,39 @@
+import "std/testing"
+import "config"
+
+fn main() {
+    mut malformedCaught = false
+    try {
+        config.parse("{\"title\":}", "broken.json")
+    } catch failure: ConfigError {
+        malformedCaught = true
+        testing.assert(contains(failure.message, "invalid configuration broken.json"), "malformed object reports source")
+    }
+    testing.assert(malformedCaught, "malformed object fails")
+    mut caught = false
+    try {
+        config.parse("not json", "typed.json")
+    } catch failure: ConfigError {
+        caught = true
+        testing.assertEqual(failure.path, "typed.json", "typed error keeps file path")
+        testing.assert(len(failure.message) > 0, "typed error keeps parser reason")
+    }
+    testing.assert(caught, "invalid JSON throws ConfigError")
+    mut defaults = config.parse("{}", "empty.json")
+    testing.assertEqual(defaults.title, "Aja Site", "empty object uses defaults")
+    mut custom = config.parse("{\"title\":\"Ürün\",\"port\":8080,\"include_drafts\":true}", "valid.json")
+    testing.assertEqual(custom.title, "Ürün", "parses Unicode title")
+    testing.assertEqual(toString(custom.port), "8080", "parses custom port")
+    testing.assert(custom.includeDrafts, "parses enabled drafts")
+    for source in ["[]", "null", "{\"title\":\"A\",}", "{} trailing"] {
+        mut rejected = false
+        try {
+            config.parse(source, "invalid.json")
+        } catch failure: ConfigError {
+            rejected = true
+            testing.assertEqual(failure.path, "invalid.json", "invalid document keeps source")
+        }
+        testing.assert(rejected, "invalid JSON must not become defaults")
+    }
+    println("Aja configuration tests passed")
+}

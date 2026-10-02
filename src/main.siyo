@@ -48,7 +48,7 @@ fn runClean() {
     println("Removed " + cfg.outputDir + "/")
 }
 
-fn printVersion() { println("aja 0.1.0 (Siyo 0.4.0)") }
+fn printVersion() { println("aja 0.1.0 (Siyo 0.7.0)") }
 
 fn unknown(command: string) {
     println("Unknown command: " + command)
@@ -64,13 +64,18 @@ fn main() {
     }
 
     mut command = toLower(args[0])
-    match command {
-        "build" => runBuild(),
-        "check" => runCheck(),
-        "serve" => runServe(args),
-        "clean" => runClean(),
-        "version" => printVersion(),
-        "help" => help(),
-        _ => unknown(command)
+    try {
+        match command {
+            "build" => runBuild(),
+            "check" => runCheck(),
+            "serve" => runServe(args),
+            "clean" => runClean(),
+            "version" => printVersion(),
+            "help" => help(),
+            _ => unknown(command)
+        }
+    } catch failure: ConfigError {
+        println("error: " + failure.message)
+        os.exit(1)
     }
 }

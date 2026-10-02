@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 env:
-  SIYO_VERSION: 0.4.0
+  SIYO_VERSION: 0.7.0
 
 jobs:
   build:
@@ -27,6 +27,9 @@ jobs:
 
       - name: Run test suite
         run: siyoc test
+
+      - name: Run CLI integration verification
+        run: python3 scripts/verify.py
 
       - name: Validate the example site
         run: ./aja check
