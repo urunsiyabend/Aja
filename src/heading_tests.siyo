@@ -1,0 +1,83 @@
+import "std/testing"
+import "markdown"
+
+fn testOptInHeading() {
+    testing.assertEqual(markdown.render("# Hello"), "<h1>Hello</h1>\n", "legacy heading stays byte-compatible")
+    mut document = markdown.renderDocument("# Hello")
+    testing.assertEqual(document.html, "<h1 id=\"hello\">Hello <a class=\"heading-anchor\" href=\"#hello\" aria-label=\"Link to this heading\">#</a></h1>\n", "opt-in visible accessible self-link")
+    testing.assertEqual(document.toc, "<nav class=\"table-of-contents\" aria-label=\"Table of contents\"><ul><li class=\"toc-level-1\"><a href=\"#hello\">Hello</a></li></ul></nav>", "accessible TOC")
+}
+
+fn testUniqueIds() {
+    mut source = "# Hello\n## Hello\n### Hello-2\n#### Hello\n##### Hello-2\n###### Hello"
+    mut document = markdown.renderDocument(source)
+    mut ids = ["hello", "hello-2", "hello-2-2", "hello-3", "hello-2-3", "hello-4"]
+    for i in range(0, len(ids)) {
+        testing.assert(contains(document.html, "<h" + toString(i + 1) + " id=\"" + ids[i] + "\">"), "unique IDs including suffix collisions at every heading level")
+        testing.assert(contains(document.toc, "href=\"#" + ids[i] + "\""), "TOC uses actual unique ID")
+    }
+    testing.assertEqual(markdown.renderDocument(source).html, document.html, "repeated calls are deterministic")
+    testing.assertEqual(markdown.renderDocument(source).toc, document.toc, "TOC has no module state")
+}
+
+fn testSafeSlugs() {
+    mut document = markdown.renderDocument("# Hello,   World!\n## !!!\n### ???\n#### İstanbul IĞDIR şüphe çığ ölü\n##### café Ελληνικά 中文\n###### <img onclick=\"evil\"> & title")
+    for id in ["hello-world", "heading", "heading-2", "istanbul-iğdir-şüphe-çığ-ölü", "café-ελληνικά-中文", "img-onclick-evil-title"] {
+        testing.assert(contains(document.html, "id=\"" + id + "\""), "safe word-separated Unicode-aware heading ID")
+        testing.assert(contains(document.toc, "href=\"#" + id + "\""), "Unicode TOC target matches ID")
+    }
+    testing.assert(!contains(document.html, "<img"), "heading HTML cannot inject tags")
+    testing.assert(!contains(document.toc, "<img"), "TOC labels cannot inject tags")
+    testing.assert(contains(document.toc, "&lt;img onclick=&quot;evil&quot;&gt; &amp; title"), "TOC label remains safely escaped")
+    testing.assert(contains(markdown.renderDocument("paragraph\n\n# Hello, World!").html, "id=\"hello-world\""), "IDs independent of preceding paragraphs")
+}
+
+fn testFormattedLabels() {
+    mut document = markdown.renderDocument("## **Read** [guide](https://example.com) & `code` <script>")
+    testing.assert(contains(document.html, "<strong>Read</strong> <a href=\"https://example.com\">guide</a>"), "heading retains existing inline links")
+    testing.assert(contains(document.toc, "<a href=\"#read-guide-code-script\"><strong>Read</strong> guide &amp; <code>code</code> &lt;script&gt;</a>"), "TOC formats safe labels without nested links or link destinations")
+    testing.assert(!contains(document.toc, "https://"), "TOC link only targets its heading")
+}
+
+fn testRenderedHeadingsOnly() {
+    mut source = "```md\n# Fenced\n```\n\n# Table | Header\n--- | ---\n## Cell | value\n\n# Real\n\n> # Quoted\n\n- # Listed\n\n####### Too deep\n\n#No space"
+    mut document = markdown.renderDocument(source)
+    testing.assertEqual(document.toc, "<nav class=\"table-of-contents\" aria-label=\"Table of contents\"><ul><li class=\"toc-level-1\"><a href=\"#real\">Real</a></li></ul></nav>", "only actual rendered headings enter TOC")
+    testing.assert(contains(document.html, "<td>## Cell</td>"), "table body heading syntax stays a cell")
+    testing.assert(contains(document.html, "<th># Table</th>"), "table header heading syntax stays a cell")
+    testing.assertEqual(markdown.renderDocument("ordinary text\n\n```\n# not a heading\n```").toc, "", "no nav when there are no headings")
+    testing.assertEqual(markdown.renderDocument("").toc, "", "empty document has empty TOC")
+    testing.assertEqual(markdown.renderDocument("```\n# not closed").toc, "", "unclosed fence has no heading")
+    testing.assert(contains(markdown.renderDocument("# ``").html, "id=\"heading\""), "empty formatted heading gets fallback")
+    mut mixed = "paragraph\n\n- item\n\n> quote\n\n---\n\n```siyo\n<code>\n```\n\nA | B\n--- | ---\nx | y"
+    testing.assertEqual(markdown.renderDocument(mixed).html, markdown.render(mixed), "non-heading blocks exactly share legacy rendering")
+}
+
+fn testUnicodeSeparators() {
+    mut document = markdown.renderDocument("# One Two—Three\n## —…！\n### Heading\n#### !!!")
+    for id in ["one-two-three", "heading", "heading-2", "heading-3"] {
+        testing.assert(contains(document.html, "id=\"" + id + "\""), "Unicode whitespace and punctuation cannot create unsafe or blank IDs")
+    }
+}
+
+fn testCanonicalHeadingIds() {
+    mut composed = markdown.renderDocument("# naïve café İstanbul")
+    mut decomposed = markdown.renderDocument("# naïve café İstanbul")
+    for document in [composed, decomposed] {
+        testing.assert(contains(document.html, "id=\"naïve-café-istanbul\""), "canonically equivalent headings preserve precomposed IDs")
+        testing.assert(contains(document.toc, "href=\"#naïve-café-istanbul\""), "canonical heading TOC uses normalized ID")
+    }
+    mut repeated = markdown.renderDocument("# café\n## café")
+    testing.assert(contains(repeated.html, "id=\"café-2\""), "canonical heading equivalents share collision handling")
+}
+
+fn main() {
+    testCanonicalHeadingIds()
+    testOptInHeading()
+    testUniqueIds()
+    testSafeSlugs()
+    testFormattedLabels()
+    testRenderedHeadingsOnly()
+    testUnicodeSeparators()
+    println("Heading tests passed")
+}

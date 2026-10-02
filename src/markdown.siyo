@@ -1,4 +1,11 @@
 import "std/html"
+import java "java.text.Normalizer"
+import java "java.text.Normalizer.Form"
+
+struct RenderedMarkdown {
+    html: string,
+    toc: string
+}
 
 struct RenderState {
     output: string,
@@ -54,6 +61,30 @@ fn safeToken(value: string) -> string {
     result
 }
 
+// Retain Unicode letters, but separate punctuation and whitespace. Turkish dotted
+// capital I is normalized before lowercasing to avoid a combining-dot slug.
+fn headingSlug(value: string) -> string {
+    mut result = ""
+    mut separator = false
+    mut normalized = toLower(replace(Normalizer.normalize(value, Form.NFC), "İ", "I"))
+    for i in range(0, len(normalized)) {
+        mut ch = substring(normalized, i, i + 1)
+        mut n = ord(ch)
+        mut letter = (n >= 97 && n <= 122) || (n >= 48 && n <= 57)
+        letter = letter || (n >= 192 && n <= 687 && n != 215 && n != 247)
+        letter = letter || (n >= 880 && n <= 8191 && n != 5760 && n != 6158 && n != 1564) || (n >= 12352 && n <= 55203)
+        if letter {
+            if separator && len(result) > 0 { result += "-" }
+            result += ch
+            separator = false
+        } else {
+            separator = true
+        }
+    }
+    if len(result) == 0 { return "heading" }
+    result
+}
+
 fn safeUrl(value: string) -> string {
     mut url = trim(value)
     if startsWith(url, "https://") || startsWith(url, "http://") { return url }
@@ -78,6 +109,10 @@ fn paired(text: string, delimiter: string, openTag: string, closeTag: string) ->
 }
 
 fn links(text: string) -> string {
+    renderLinks(text, true)
+}
+
+fn renderLinks(text: string, linked: bool) -> string {
     mut result = ""
     mut remaining = text
     while contains(remaining, "[") {
@@ -99,16 +134,24 @@ fn links(text: string) -> string {
             continue
         }
         mut target = safeUrl(substring(afterLabel, 0, closeParen))
-        result += "<a href=\"" + html.escapeAttr(target) + "\">" + label + "</a>"
+        if linked {
+            result += "<a href=\"" + html.escapeAttr(target) + "\">" + label + "</a>"
+        } else {
+            result += label
+        }
         remaining = substring(afterLabel, closeParen + 1, len(afterLabel))
     }
     result + remaining
 }
 
 fn inline(value: string) -> string {
+    inlineContent(value, true)
+}
+
+fn inlineContent(value: string, linked: bool) -> string {
     mut result = html.escape(value)
     result = paired(result, "`", "<code>", "</code>")
-    result = links(result)
+    result = renderLinks(result, linked)
     result = paired(result, "**", "<strong>", "</strong>")
     result = paired(result, "*", "<em>", "</em>")
     result
@@ -174,6 +217,17 @@ fn tableRow(cells: string[], tag: string, separators: string[]) -> string {
 }
 
 fn render(markdown: string) -> string {
+    renderBlocks(markdown, false).html
+}
+
+fn renderDocument(source: string) -> RenderedMarkdown {
+    renderBlocks(source, true)
+}
+
+fn renderBlocks(markdown: string, anchored: bool) -> RenderedMarkdown {
+    mut tocItems = ""
+    // The default document shell owns id="main" for its skip link.
+    mut usedIds: string[] = ["main"]
     mut state = RenderState {
         output: "",
         paragraph: "",
@@ -250,7 +304,27 @@ fn render(markdown: string) -> string {
             state.closeList()
             mut headingText = substring(stripped, headingLevel + 1, len(stripped))
             mut level = toString(headingLevel)
-            state.output += "<h" + level + ">" + inline(headingText) + "</h" + level + ">\n"
+            if anchored {
+                mut base = headingSlug(renderLinks(headingText, false))
+                mut id = base
+                mut suffix = 2
+                mut collision = true
+                while collision {
+                    collision = false
+                    for used in usedIds {
+                        if used == id { collision = true }
+                    }
+                    if collision {
+                        id = base + "-" + toString(suffix)
+                        suffix += 1
+                    }
+                }
+                push(usedIds, id)
+                state.output += "<h" + level + " id=\"" + id + "\">" + inline(headingText) + " <a class=\"heading-anchor\" href=\"#" + id + "\" aria-label=\"Link to this heading\">#</a></h" + level + ">\n"
+                tocItems += "<li class=\"toc-level-" + level + "\"><a href=\"#" + id + "\">" + inlineContent(headingText, false) + "</a></li>"
+            } else {
+                state.output += "<h" + level + ">" + inline(headingText) + "</h" + level + ">\n"
+            }
             continue
         }
 
@@ -283,5 +357,9 @@ fn render(markdown: string) -> string {
     if state.inFence { state.flushFence() }
     state.flushParagraph()
     state.closeList()
-    state.output
+    mut toc = ""
+    if len(tocItems) > 0 {
+        toc = "<nav class=\"table-of-contents\" aria-label=\"Table of contents\"><ul>" + tocItems + "</ul></nav>"
+    }
+    RenderedMarkdown { html: state.output, toc: toc }
 }

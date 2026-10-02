@@ -1,0 +1,59 @@
+import java "java.lang.Character"
+
+// Estimate at a fixed 200 visible words per minute, rounded upward.
+pub fn readingMinutes(words: int) -> int {
+    if words <= 0 { return 0 }
+    1 + (words - 1) / 200
+}
+
+pub fn wordCount(html: string) -> int {
+    mut count = 0
+    mut inTag = false
+    mut inWord = false
+    mut inEntity = false
+    mut inPre = false
+    mut tag = ""
+    for i in range(0, len(html)) {
+        mut ch = substring(html, i, i + 1)
+        if ch == "<" {
+            inTag = true
+            tag = ""
+            continue
+        }
+        if inTag {
+            if ch == ">" {
+                inTag = false
+                mut name = toLower(trim(tag))
+                mut space = indexOf(name, " ")
+                if space >= 0 { name = substring(name, 0, space) }
+                if name == "pre" { inPre = true; inWord = false }
+                if name == "/pre" { inPre = false; inWord = false }
+                if name == "p" || name == "/p" || name == "li" || name == "/li" || name == "br" || name == "td" || name == "/td" || name == "th" || name == "/th" || startsWith(name, "h") || startsWith(name, "/h") {
+                    inWord = false
+                }
+            } else { tag += ch }
+            continue
+        }
+        if inPre { continue }
+        if inEntity {
+            if ch == ";" { inEntity = false }
+            continue
+        }
+        if ch == "&" {
+            inEntity = true
+            inWord = false
+            continue
+        }
+        if Character.isLetterOrDigit(ord(ch)) {
+            if !inWord { count += 1 }
+            inWord = true
+        } else if inWord && (Character.getType(ord(ch)) == Character.NON_SPACING_MARK || Character.getType(ord(ch)) == Character.COMBINING_SPACING_MARK || Character.getType(ord(ch)) == Character.ENCLOSING_MARK) {
+            continue
+        } else if (ch == "'" || ch == "-") && inWord {
+            continue
+        } else {
+            inWord = false
+        }
+    }
+    count
+}

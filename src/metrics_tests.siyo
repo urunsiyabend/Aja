@@ -1,0 +1,16 @@
+import "std/testing"
+import "metrics"
+
+fn main() {
+    testing.assertEqual(toString(metrics.wordCount("<h2>Hello world</h2><p>Read this post.</p>")), "5", "counts visible text, not HTML tags")
+    testing.assertEqual(toString(metrics.readingMinutes(5)), "1", "short text takes at least one estimated minute")
+    testing.assertEqual(toString(metrics.wordCount("<p>hel<strong>lo</strong> don't re-read Ürün ışık 2026 &amp; &lt; &gt; &quot;</p>")), "6", "inline tags, punctuation, entities and Unicode do not inflate count")
+    testing.assertEqual(toString(metrics.readingMinutes(0)), "0", "empty text has no reading time")
+    testing.assertEqual(toString(metrics.readingMinutes(200)), "1", "exact minute boundary")
+    testing.assertEqual(toString(metrics.readingMinutes(201)), "2", "rounds up partial minute")
+    testing.assertEqual(toString(metrics.wordCount("<p>Before.</p><pre><code class=\"language-siyo\">many code words should not count</code></pre><p>After.</p>")), "2", "fenced code does not inflate prose reading time")
+    testing.assertEqual(toString(metrics.wordCount("<p>naïve café</p>")), "2", "decomposed accents stay attached to their words")
+    testing.assertEqual(toString(metrics.wordCount("<p>हिन्दी किताब</p>")), "2", "Devanagari combining marks do not split words")
+    testing.assertEqual(toString(metrics.wordCount("<p>̈ ि ं a ̈b</p>")), "2", "standalone combining marks do not start words")
+    println("Metrics tests passed")
+}

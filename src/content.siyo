@@ -3,6 +3,8 @@ import "std/path"
 import "frontmatter"
 import "markdown"
 import "model"
+import "metrics"
+import "navigation"
 
 fn load(config: SiteConfig) -> ContentSet {
     mut pages: Page[] = []
@@ -19,7 +21,11 @@ fn load(config: SiteConfig) -> ContentSet {
             skipped += 1
             continue
         }
-        page.renderedBody = markdown.render(page.rawBody)
+        mut document = markdown.renderDocument(page.rawBody)
+        page.renderedBody = document.html
+        page.tableOfContents = document.toc
+        page.wordCount = metrics.wordCount(page.renderedBody)
+        page.readingMinutes = metrics.readingMinutes(page.wordCount)
         push(pages, page)
     }
 
@@ -32,5 +38,6 @@ fn load(config: SiteConfig) -> ContentSet {
         if a.title > b.title { return 1 }
         0
     })
+    navigation.attach(pages)
     ContentSet { pages: pages, discovered: discovered, skippedDrafts: skipped }
 }

@@ -1,0 +1,46 @@
+import "std/testing"
+import "model"
+import "navigation"
+
+fn post(title: string, date: string, url: string) -> Page {
+    mut page = model.emptyPage(title + ".md", title + ".md")
+    page.title = title
+    page.date = date
+    page.url = url
+    page
+}
+
+fn main() {
+    mut older = post("Older", "2026-09-01", "/posts/older/")
+    mut newer = post("Newer", "2026-09-03", "/posts/newer/")
+    mut middle = post("Middle", "2026-09-02", "/posts/middle/")
+    mut pages: Page[] = [middle, older, newer]
+    navigation.attach(pages)
+    testing.assertEqual(pages[0].url, middle.url, "navigation preserves first listing position")
+    testing.assertEqual(pages[1].url, older.url, "navigation preserves second listing position")
+    testing.assertEqual(pages[2].url, newer.url, "navigation preserves third listing position")
+    testing.assertEqual(middle.previousUrl, older.url, "previous post is older regardless of array order")
+    testing.assertEqual(middle.nextUrl, newer.url, "next post is newer regardless of array order")
+    testing.assertEqual(middle.previousTitle, "Older", "preserves previous title")
+    testing.assertEqual(middle.nextTitle, "Newer", "preserves next title")
+    testing.assertEqual(older.previousUrl, "", "oldest has no previous post")
+    testing.assertEqual(newer.nextUrl, "", "newest has no next post")
+    mut draft = post("Secret draft", "2026-09-02", "/posts/draft/")
+    draft.draft = true
+    mut standalone = post("About", "2026-09-02", "/about/")
+    standalone.kind = PageKind.Page
+    mut undated = post("Undated", "", "/posts/undated/")
+    navigation.attach([older, draft, standalone, newer, undated])
+    testing.assertEqual(older.nextUrl, newer.url, "drafts, pages and undated posts are excluded")
+    testing.assertEqual(draft.nextUrl, "", "drafts have no navigation")
+    testing.assertEqual(standalone.previousUrl, "", "standalone pages have no navigation")
+    testing.assertEqual(undated.nextUrl, "", "undated posts have no navigation")
+    navigation.attach([older])
+    testing.assertEqual(older.nextUrl, "", "repeated attachment clears stale links")
+    navigation.attach([])
+    mut a = post("A", "2026-09-04", "/posts/a/")
+    mut b = post("B", "2026-09-04", "/posts/b/")
+    navigation.attach([b, a])
+    testing.assertEqual(a.nextUrl, b.url, "same-date ordering is deterministic by URL")
+    println("Navigation tests passed")
+}

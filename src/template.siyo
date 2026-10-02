@@ -24,6 +24,18 @@ fn renderTags(tags: string[]) -> string {
     output + "</ul>"
 }
 
+fn renderNavigation(page: Page) -> string {
+    if len(page.previousUrl) == 0 && len(page.nextUrl) == 0 { return "" }
+    mut result = "<nav class=\"post-navigation\" aria-label=\"Post navigation\">"
+    if len(page.previousUrl) > 0 {
+        result += "<a class=\"previous-post\" rel=\"prev\" href=\"" + html.escapeAttr(page.previousUrl) + "\"><span>← Previous post</span><strong>" + html.escape(page.previousTitle) + "</strong></a>"
+    }
+    if len(page.nextUrl) > 0 {
+        result += "<a class=\"next-post\" rel=\"next\" href=\"" + html.escapeAttr(page.nextUrl) + "\"><span>Next post →</span><strong>" + html.escape(page.nextTitle) + "</strong></a>"
+    }
+    result + "</nav>"
+}
+
 fn pageValues(config: SiteConfig, page: Page) -> map {
     mut values = map()
     values.set("site_title", html.escape(config.title))
@@ -38,6 +50,14 @@ fn pageValues(config: SiteConfig, page: Page) -> map {
     values.set("url", html.escapeAttr(page.url))
     values.set("content", page.renderedBody)
     values.set("tags", renderTags(page.tags))
+    values.set("toc", page.tableOfContents)
+    values.set("word_count", toString(page.wordCount))
+    values.set("reading_time", toString(page.readingMinutes))
+    values.set("previous_url", html.escapeAttr(page.previousUrl))
+    values.set("previous_title", html.escape(page.previousTitle))
+    values.set("next_url", html.escapeAttr(page.nextUrl))
+    values.set("next_title", html.escape(page.nextTitle))
+    values.set("post_navigation", renderNavigation(page))
     values
 }
 
@@ -70,6 +90,14 @@ fn renderDocument(config: SiteConfig, title: string, description: string, url: s
     values.set("url", html.escapeAttr(url))
     values.set("date", "")
     values.set("tags", "")
+    values.set("toc", "")
+    values.set("word_count", "0")
+    values.set("reading_time", "0")
+    values.set("previous_url", "")
+    values.set("previous_title", "")
+    values.set("next_url", "")
+    values.set("next_title", "")
+    values.set("post_navigation", "")
     values.set("content", body)
     apply(loadTemplate(config, "base.html"), values)
 }

@@ -7,6 +7,10 @@ import "markdown"
 import "model"
 import "template"
 import "table_tests"
+import "metrics_tests"
+import "navigation_tests"
+import "presentation_tests"
+import "heading_tests"
 
 fn testConfig() {
     mut cfg = config.load("aja.json")
@@ -55,6 +59,10 @@ fn main() {
     testFrontMatter()
     testMarkdown()
     table_tests.main()
+    metrics_tests.main()
+    navigation_tests.main()
+    presentation_tests.main()
+    heading_tests.main()
     testTemplate()
     testOutputGuard()
     println("Aja tests passed")

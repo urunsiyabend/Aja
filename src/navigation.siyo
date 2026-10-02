@@ -1,0 +1,31 @@
+import "model"
+
+// Reading order is ascending ISO date, with URL as a deterministic tie-breaker.
+pub fn attach(pages: Page[]) {
+    mut posts: Page[] = []
+    for page in pages {
+        page.previousUrl = ""
+        page.previousTitle = ""
+        page.nextUrl = ""
+        page.nextTitle = ""
+        if page.isPost() && !page.draft && len(trim(page.date)) > 0 { push(posts, page) }
+    }
+    sort(posts, fn(a: Page, b: Page) -> int {
+        if a.date < b.date { return -1 }
+        if a.date > b.date { return 1 }
+        if a.url < b.url { return -1 }
+        if a.url > b.url { return 1 }
+        0
+    })
+    for i in range(0, len(posts)) {
+        mut page = posts[i]
+        if i > 0 {
+            page.previousUrl = posts[i - 1].url
+            page.previousTitle = posts[i - 1].title
+        }
+        if i + 1 < len(posts) {
+            page.nextUrl = posts[i + 1].url
+            page.nextTitle = posts[i + 1].title
+        }
+    }
+}

@@ -1,0 +1,26 @@
+import "std/testing"
+import "model"
+import "template"
+
+fn main() {
+    mut cfg = model.defaultConfig()
+    mut page = model.emptyPage("test.md", "test.md")
+    page.wordCount = 250
+    page.readingMinutes = 2
+    page.tableOfContents = "<nav class=\"table-of-contents\">Contents</nav>"
+    mut values = template.pageValues(cfg, page)
+    testing.assertEqual(template.apply("{{word_count}} words / {{reading_time}} min / {{toc}}", values), "250 words / 2 min / <nav class=\"table-of-contents\">Contents</nav>", "exports metrics and generated TOC placeholders")
+    testing.assertEqual(template.renderNavigation(page), "", "single post has no empty navigation")
+    page.previousUrl = "/posts/old/"
+    page.previousTitle = "<Old> & safe"
+    page.nextUrl = "/posts/new/"
+    page.nextTitle = "New \"post\""
+    mut nav = template.renderNavigation(page)
+    testing.assert(contains(nav, "rel=\"prev\""), "previous link has semantic relation")
+    testing.assert(contains(nav, "rel=\"next\""), "next link has semantic relation")
+    testing.assert(contains(nav, "&lt;Old&gt; &amp; safe"), "escapes previous title")
+    testing.assert(!contains(nav, "<Old>"), "no injected title HTML")
+    testing.assert(contains(nav, "href=\"/posts/new/\""), "next URL is rendered")
+    testing.assertEqual(template.apply("{{post_navigation}}", template.pageValues(cfg, page)), nav, "navigation template placeholder")
+    println("Presentation tests passed")
+}

@@ -188,6 +188,41 @@ p, ul, ol, blockquote, pre { margin: 0 0 1.15rem; }
 }
 .back-link { text-decoration: none; }
 
+/* Reading aids ------------------------------------------------------ */
+
+.table-of-contents {
+  margin: 0 0 2rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+.table-of-contents ul { margin: 0; padding-left: 1.25rem; }
+.table-of-contents a { text-decoration: none; }
+.table-of-contents .toc-level-3 { margin-left: 0.75rem; }
+.table-of-contents .toc-level-4,
+.table-of-contents .toc-level-5,
+.table-of-contents .toc-level-6 { margin-left: 1.5rem; }
+.prose [id] { scroll-margin-top: 1.5rem; }
+.heading-anchor { margin-left: 0.4em; color: var(--muted); text-decoration: none; font-size: 0.8em; }
+.heading-anchor:hover, .heading-anchor:focus-visible { color: var(--accent); }
+
+.post-navigation {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.post-navigation a { padding: 0.75rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; }
+.post-navigation span { display: block; color: var(--muted); font-size: 0.8rem; }
+.post-navigation strong { display: block; overflow-wrap: anywhere; }
+.next-post { grid-column: 2; text-align: right; }
+@media (max-width: 480px) {
+  .post-navigation { grid-template-columns: 1fr; }
+  .next-post { grid-column: 1; text-align: left; }
+}
+
 blockquote {
   margin-left: 0;
   padding: 0.35rem 0 0.35rem 1.25rem;

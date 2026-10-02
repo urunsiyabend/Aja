@@ -39,7 +39,14 @@ struct Page {
     draft: bool,
     weight: int,
     rawBody: string,
-    renderedBody: string
+    renderedBody: string,
+    tableOfContents: string,
+    wordCount: int,
+    readingMinutes: int,
+    previousUrl: string,
+    previousTitle: string,
+    nextUrl: string,
+    nextTitle: string
 }
 
 impl Page {
@@ -104,7 +111,14 @@ fn emptyPage(sourcePath: string, relativePath: string) -> Page {
         draft: false,
         weight: 0,
         rawBody: "",
-        renderedBody: ""
+        renderedBody: "",
+        tableOfContents: "",
+        wordCount: 0,
+        readingMinutes: 0,
+        previousUrl: "",
+        previousTitle: "",
+        nextUrl: "",
+        nextTitle: ""
     }
 }
 

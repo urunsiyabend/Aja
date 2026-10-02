@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the real CLI and validate generated artifacts with stdlib only."""
 import json
+from html.parser import HTMLParser
 import os
 from pathlib import Path
 import shutil
@@ -13,6 +14,27 @@ COMPILER = shutil.which(os.environ.get("SIYO_BIN", "siyoc"))
 if not COMPILER:
     raise SystemExit("Siyo compiler not found; set SIYO_BIN or add siyoc to PATH")
 ENV = {**os.environ, "SIYO_BIN": COMPILER}
+
+
+class ReadingAidsParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.ids = []
+        self.toc_links = []
+        self.in_toc = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if "id" in attrs:
+            self.ids.append(attrs["id"])
+        if tag == "nav" and "table-of-contents" in (attrs.get("class") or "").split():
+            self.in_toc = True
+        if tag == "a" and self.in_toc:
+            self.toc_links.append(attrs.get("href") or "")
+
+    def handle_endtag(self, tag):
+        if tag == "nav":
+            self.in_toc = False
 
 
 def command(*args, cwd=ROOT, success=True):
@@ -30,16 +52,32 @@ def main():
     suite = command(COMPILER, "test")
     assert "Aja tests passed" in suite and "Aja configuration tests passed" in suite, suite
     assert "Table tests passed" in suite, suite
+    for marker in ("Heading tests passed", "Metrics tests passed", "Navigation tests passed", "Presentation tests passed"):
+        assert marker in suite, suite
     scratch = os.environ.get("TMPDIR")
     with tempfile.TemporaryDirectory(prefix="aja-verify-", dir=scratch) as directory:
         project = Path(directory) / "site"
         shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns(".git", "dist", "__pycache__"))
+        shell = project / "templates/base.html"
+        shell.write_text(shell.read_text() + "\n<!-- reading-context: {{toc}}|{{word_count}}|{{reading_time}}|{{post_navigation}}|{{previous_url}}|{{previous_title}}|{{next_url}}|{{next_title}} -->\n")
         assert "aja 0.1.0 (Siyo 0.7.0)" in command(str(project / "aja"), "version", cwd=project)
         (project / "content/table-fixture.md").write_text(
             "---\ntitle: Table fixture\nkind: page\n---\n"
             "| Name | Value |\n| :--- | ---: |\n| **Aja** | <unsafe> |\n",
             encoding="utf-8",
         )
+        for slug, title, date, weight in (
+            ("nav-older", "<Older> & post", "2026-09-29", 0),
+            ("nav-middle", "Middle post", "2026-09-30", -100),
+            ("nav-newer", "Newer post", "2026-10-01", 0),
+        ):
+            body = "## Getting started\n\n" + "word " * 201
+            body += "\n\n## Getting started\n\n## Ürün Rehberi\n\n## Main\n\n```text\n# Hidden code heading\n```\n"
+            (project / ("content/" + slug + ".md")).write_text(
+                f"---\ntitle: {title}\ndate: {date}\nweight: {weight}\n---\n" + body,
+                encoding="utf-8",
+            )
+        (project / "static/binary-fixture.bin").write_bytes(b"\x00\xff\xfe\x80binary\x00")
         command(str(project / "aja"), "check", cwd=project)
         command(str(project / "aja"), "build", cwd=project)
         output = project / "dist"
@@ -53,9 +91,21 @@ def main():
         ET.parse(output / "feed.xml")
         ET.parse(output / "sitemap.xml")
         original_index = (output / "index.html").read_bytes()
+        assert b"{{" not in original_index, "Generated indexes must resolve reading-aid placeholders"
         rendered_table = (output / "table-fixture/index.html").read_text()
         assert "<table>" in rendered_table and "<strong>Aja</strong>" in rendered_table, rendered_table
         assert "&lt;unsafe&gt;" in rendered_table and "<unsafe>" not in rendered_table, rendered_table
+        rendered_post = (output / "posts/nav-middle/index.html").read_text()
+        assert "2 min read" in rendered_post, rendered_post
+        assert 'rel="prev" href="/posts/nav-older/"' in rendered_post, rendered_post
+        assert 'rel="next" href="/posts/nav-newer/"' in rendered_post, rendered_post
+        assert "&lt;Older&gt; &amp; post" in rendered_post and "<Older>" not in rendered_post, rendered_post
+        parser = ReadingAidsParser()
+        parser.feed(rendered_post)
+        assert len(parser.toc_links) == 4, parser.toc_links
+        assert len(parser.ids) == len(set(parser.ids)), parser.ids
+        assert all(link.startswith("#") and link[1:] in parser.ids for link in parser.toc_links), parser.toc_links
+        assert "table-of-contents" not in rendered_table, "Headless content has an empty TOC"
         (project / "aja.json").write_text('{"title":}', encoding="utf-8")
         for action in ("check", "build", "clean", "serve"):
             diagnostic = command(str(project / "aja"), action, cwd=project, success=False)

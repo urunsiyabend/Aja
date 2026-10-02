@@ -16,6 +16,11 @@ All notable changes to Aja are documented here. The format follows
 
 ### Added
 
+- Heading permalinks and an automatic table of contents for content pages.
+- Visible-body word counts and estimated reading time, excluding fenced code.
+- Previous/next post navigation with deterministic chronological ordering,
+  excluding drafts, standalone pages and undated content.
+- Default-theme reading aids and corresponding custom-template placeholders.
 - Markdown pipe tables with optional outer pipes, left/center/right alignment,
   inline formatting, HTML escaping and deterministic ragged-row handling.
 - Typed configuration errors preserve the source path and parser diagnostic;

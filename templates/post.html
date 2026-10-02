@@ -2,11 +2,13 @@
   <header class="article-header">
     <p class="eyebrow">Post</p>
     <h1>{{title}}</h1>
-    <p class="byline"><time datetime="{{date}}">{{date}}</time> · {{site_author}}</p>
+    <p class="byline"><time datetime="{{date}}">{{date}}</time> · {{site_author}} · {{reading_time}} min read</p>
     {{tags}}
   </header>
+  {{toc}}
   {{content}}
   <footer class="article-footer">
+    {{post_navigation}}
     <a class="back-link" href="/">← All posts</a>
   </footer>
 </article>
