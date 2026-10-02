@@ -11,6 +11,8 @@ import "metrics_tests"
 import "navigation_tests"
 import "presentation_tests"
 import "heading_tests"
+import "task_tests"
+import "toc_tests"
 
 fn testConfig() {
     mut cfg = config.load("aja.json")
@@ -63,6 +65,8 @@ fn main() {
     navigation_tests.main()
     presentation_tests.main()
     heading_tests.main()
+    task_tests.main()
+    toc_tests.main()
     testTemplate()
     testOutputGuard()
     println("Aja tests passed")

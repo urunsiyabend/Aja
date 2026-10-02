@@ -216,6 +216,17 @@ fn tableRow(cells: string[], tag: string, separators: string[]) -> string {
     result + "</tr>\n"
 }
 
+fn listItem(body: string) -> string {
+    if startsWith(body, "[ ] ") || startsWith(body, "[x] ") || startsWith(body, "[X] ") || body == "[ ]" || body == "[x]" || body == "[X]" {
+        mut checked = if substring(body, 1, 2) == " " { "" } else { " checked" }
+        mut label = ""
+        if len(body) > 3 { label = substring(body, 4, len(body)) }
+        mut accessibleName = if len(trim(label)) == 0 { " aria-label=\"Task\"" } else { "" }
+        return "<li class=\"task-list-item\"><label><input type=\"checkbox\" disabled" + checked + accessibleName + "> <span>" + inline(label) + "</span></label></li>\n"
+    }
+    "<li>" + inline(body) + "</li>\n"
+}
+
 fn render(markdown: string) -> string {
     renderBlocks(markdown, false).html
 }
@@ -338,7 +349,7 @@ fn renderBlocks(markdown: string, anchored: bool) -> RenderedMarkdown {
         if startsWith(stripped, "- ") || startsWith(stripped, "* ") {
             state.flushParagraph()
             state.openList("ul")
-            state.output += "<li>" + inline(substring(stripped, 2, len(stripped))) + "</li>\n"
+            state.output += listItem(substring(stripped, 2, len(stripped)))
             continue
         }
 
@@ -346,7 +357,7 @@ fn renderBlocks(markdown: string, anchored: bool) -> RenderedMarkdown {
         if len(orderedBody) > 0 {
             state.flushParagraph()
             state.openList("ol")
-            state.output += "<li>" + inline(orderedBody) + "</li>\n"
+            state.output += listItem(orderedBody)
             continue
         }
 

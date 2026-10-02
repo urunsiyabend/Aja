@@ -1,0 +1,17 @@
+import "std/testing"
+import "frontmatter"
+
+fn main() {
+    mut normal = frontmatter.parse("default.md", "default.md", "# Default")
+    testing.assert(normal.showToc, "TOC is enabled by default")
+    for value in ["false", "no", "FALSE"] {
+        mut page = frontmatter.parse("hidden.md", "hidden.md", "---\ntoc: " + value + "\n---\n# Hidden")
+        testing.assert(!page.showToc, "front matter can disable TOC")
+        testing.assertEqual(page.rawBody, "# Hidden", "TOC metadata is not part of the body")
+    }
+    for value in ["true", "yes", "invalid"] {
+        mut page = frontmatter.parse("shown.md", "shown.md", "---\ntoc: " + value + "\n---\n# Shown")
+        testing.assert(page.showToc, "enabled values and invalid-value fallback retain default")
+    }
+    println("TOC settings tests passed")
+}

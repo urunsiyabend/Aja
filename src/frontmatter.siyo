@@ -86,6 +86,7 @@ fn parse(sourcePath: string, relativePath: string, source: string) -> Page {
     if values.has("description") { page.description = toString(values.get("description")) }
     if values.has("date") { page.date = toString(values.get("date")) }
     if values.has("draft") { page.draft = parseBool(toString(values.get("draft")), false) }
+    if values.has("toc") { page.showToc = parseBool(toString(values.get("toc")), true) }
     if values.has("weight") { page.weight = parseInteger(toString(values.get("weight")), 0) }
     if values.has("tags") { page.tags = parseTags(toString(values.get("tags"))) }
     if values.has("template") { page.templateName = toString(values.get("template")) }

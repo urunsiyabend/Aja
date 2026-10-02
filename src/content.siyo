@@ -23,7 +23,7 @@ fn load(config: SiteConfig) -> ContentSet {
         }
         mut document = markdown.renderDocument(page.rawBody)
         page.renderedBody = document.html
-        page.tableOfContents = document.toc
+        if page.showToc { page.tableOfContents = document.toc }
         page.wordCount = metrics.wordCount(page.renderedBody)
         page.readingMinutes = metrics.readingMinutes(page.wordCount)
         push(pages, page)

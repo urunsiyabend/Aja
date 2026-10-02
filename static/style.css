@@ -108,6 +108,9 @@ h3 { font-size: 1.2rem; }
 p, ul, ol, blockquote, pre { margin: 0 0 1.15rem; }
 .prose { max-width: var(--measure); }
 .prose li { margin-bottom: 0.35rem; }
+.prose .task-list-item { list-style: none; }
+.task-list-item label { display: flex; align-items: baseline; gap: 0.5rem; }
+.task-list-item input[type="checkbox"] { flex: 0 0 auto; accent-color: var(--accent); }
 
 .eyebrow {
   margin: 0 0 0.35rem;

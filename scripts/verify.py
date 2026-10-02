@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +53,7 @@ def main():
     suite = command(COMPILER, "test")
     assert "Aja tests passed" in suite and "Aja configuration tests passed" in suite, suite
     assert "Table tests passed" in suite, suite
-    for marker in ("Heading tests passed", "Metrics tests passed", "Navigation tests passed", "Presentation tests passed"):
+    for marker in ("Heading tests passed", "Metrics tests passed", "Navigation tests passed", "Presentation tests passed", "Task tests passed", "TOC settings tests passed"):
         assert marker in suite, suite
     scratch = os.environ.get("TMPDIR")
     with tempfile.TemporaryDirectory(prefix="aja-verify-", dir=scratch) as directory:
@@ -60,10 +61,17 @@ def main():
         shutil.copytree(ROOT, project, ignore=shutil.ignore_patterns(".git", "dist", "__pycache__"))
         shell = project / "templates/base.html"
         shell.write_text(shell.read_text() + "\n<!-- reading-context: {{toc}}|{{word_count}}|{{reading_time}}|{{post_navigation}}|{{previous_url}}|{{previous_title}}|{{next_url}}|{{next_title}} -->\n")
-        assert "aja 0.1.0 (Siyo 0.7.0)" in command(str(project / "aja"), "version", cwd=project)
+        version = tomllib.loads((project / "siyo.toml").read_text())["project"]["version"]
+        assert f"aja {version} (Siyo 0.7.0)" in command(str(project / "aja"), "version", cwd=project)
+        assert f"Aja {version}" in command(str(project / "aja"), "help", cwd=project)
         (project / "content/table-fixture.md").write_text(
             "---\ntitle: Table fixture\nkind: page\n---\n"
             "| Name | Value |\n| :--- | ---: |\n| **Aja** | <unsafe> |\n",
+            encoding="utf-8",
+        )
+        (project / "content/task-fixture.md").write_text(
+            "---\ntitle: Task fixture\nkind: page\ntoc: false\n---\n"
+            "# Tasks\n\n- [ ] Write **docs** & <unsafe>\n- [x] Ship release\n",
             encoding="utf-8",
         )
         for slug, title, date, weight in (
@@ -86,7 +94,7 @@ def main():
         for asset in (project / "static").rglob("*"):
             if asset.is_file():
                 assert asset.read_bytes() == (output / asset.relative_to(project / "static")).read_bytes(), asset
-        assert not (output / "notes/draft-example").exists(), "Draft leaked"
+        assert not (output / "posts/draft-example").exists(), "Draft leaked"
         json.loads((output / "search.json").read_text())
         ET.parse(output / "feed.xml")
         ET.parse(output / "sitemap.xml")
@@ -106,6 +114,12 @@ def main():
         assert len(parser.ids) == len(set(parser.ids)), parser.ids
         assert all(link.startswith("#") and link[1:] in parser.ids for link in parser.toc_links), parser.toc_links
         assert "table-of-contents" not in rendered_table, "Headless content has an empty TOC"
+        rendered_tasks = (output / "task-fixture/index.html").read_text()
+        assert 'id="tasks"' in rendered_tasks, "Disabling TOC must retain heading permalinks"
+        assert "table-of-contents" not in rendered_tasks, "toc: false must hide the navigation"
+        assert '<input type="checkbox" disabled>' in rendered_tasks, rendered_tasks
+        assert '<input type="checkbox" disabled checked>' in rendered_tasks, rendered_tasks
+        assert "<strong>docs</strong> &amp; &lt;unsafe&gt;" in rendered_tasks, rendered_tasks
         (project / "aja.json").write_text('{"title":}', encoding="utf-8")
         for action in ("check", "build", "clean", "serve"):
             diagnostic = command(str(project / "aja"), action, cwd=project, success=False)

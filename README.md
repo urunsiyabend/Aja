@@ -1,5 +1,7 @@
 # Aja
 
+Version **0.2.0** — requires **Siyo 0.7.0**.
+
 Aja is a static site generator written entirely in [Siyo](https://github.com/urunsiyabend/SiyoCompiler).
 It reads Markdown from `content/`, applies HTML templates from `templates/`,
 copies `static/` byte-for-byte and writes a deployable site into `dist/`.
@@ -56,6 +58,7 @@ which makes `./aja check && ./aja build` a usable CI gate.
 - Headings, paragraphs, lists, blockquotes, horizontal rules, fenced code and
   inline Markdown
 - Pipe tables with column alignment and escaped, inline-formatted cells
+- Markdown task lists with read-only checked/unchecked checkboxes
 - HTML escaping everywhere, plus link-scheme filtering
 - Paginated post indexes and generated tag archives
 - RSS 2.0, XML sitemap, `robots.txt` and a JSON search index
@@ -85,9 +88,11 @@ Body written in **Markdown**.
 ```
 
 Supported keys are `title`, `description`, `date`, `tags`, `draft`, `kind`,
-`slug`, `weight` and `template`. Set `kind: page` for a standalone page; any
+`slug`, `weight`, `template` and `toc`. Set `kind: page` for a standalone page; any
 other document is a post. `content/notes/deep-dive.md` becomes
-`/notes/deep-dive/`; `slug` overrides the last segment.
+`/posts/deep-dive/` as a post, or `/deep-dive/` with `kind: page`;
+`slug` overrides the document's last segment. Discovery is recursive, but
+parent directory names are not included in the output URL.
 
 ### Markdown tables
 
@@ -103,6 +108,18 @@ center and right. Separators need at least three hyphens per column. Short
 rows are padded with empty cells; extra cells are discarded. This is a small
 pipe-table subset: literal/escaped pipes in cells and multiline cells are not
 supported.
+
+### Task lists
+
+```md
+- [ ] Write documentation
+- [x] Run tests
+1. [X] Verify the release
+```
+
+Task lists work in ordered and unordered lists. Labels keep inline Markdown
+formatting and HTML escaping; fenced code remains untouched. Checkboxes are
+disabled, static indicators, not an interactive task-storage feature.
 
 ## Templates
 
@@ -130,6 +147,8 @@ The default post and page templates include `{{toc}}`. It is empty when the
 body has no headings; otherwise it links to the body heading permalinks.
 Duplicate heading IDs are disambiguated, and code-block headings do not enter
 the contents list. To hide the contents list in a custom theme, omit `{{toc}}`.
+For a single document, set `toc: false` (or `toc: no`) in its front matter;
+heading permalinks remain available. The default is enabled.
 
 `{{word_count}}` counts visible body words, not HTML attributes or fenced code.
 Inline code and heading text are included. `{{reading_time}}` is an estimate in
@@ -176,6 +195,9 @@ siyo.toml    Siyo project manifest
 ```
 
 ## Development
+
+The CLI/artifact verification script requires Python 3.11+ and uses only the
+standard library. Aja itself still needs only the Siyo runtime.
 
 ```sh
 siyoc test       # run the Siyo test suite in src/test.siyo

@@ -1,0 +1,19 @@
+import "std/testing"
+import "markdown"
+
+fn main() {
+    mut output = markdown.render("- [ ] Write docs\n- [x] Ship release\n* [X] Test build\n- ordinary item")
+    testing.assert(contains(output, "<li class=\"task-list-item\"><label><input type=\"checkbox\" disabled> <span>Write docs</span></label></li>"), "unchecked task renders a disabled checkbox")
+    testing.assert(contains(output, "<input type=\"checkbox\" disabled checked> <span>Ship release</span>"), "lowercase checked task")
+    testing.assert(contains(output, "<input type=\"checkbox\" disabled checked> <span>Test build</span>"), "uppercase checked task with star marker")
+    testing.assert(contains(output, "<li>ordinary item</li>"), "ordinary list item stays unchanged")
+    mut ordered = markdown.render("1. [x] **Done** & <script>\n2. [ ] [safe](/about/)\n3. [z] invalid\n4. [x]no-space")
+    testing.assert(contains(ordered, "<ol>"), "ordered task lists are supported")
+    testing.assert(contains(ordered, "<strong>Done</strong> &amp; &lt;script&gt;"), "task labels retain safe inline formatting")
+    testing.assert(!contains(ordered, "<script>"), "task labels cannot inject HTML")
+    testing.assert(contains(ordered, "<li>[z] invalid</li>"), "invalid task state remains text")
+    testing.assert(contains(ordered, "<li>[x]no-space</li>"), "non-separated task marker remains text")
+    testing.assert(!contains(markdown.render("```md\n- [x] Code sample\n```"), "type=\"checkbox\""), "fenced task syntax remains code")
+    testing.assert(contains(markdown.render("- [ ]"), "disabled aria-label=\"Task\""), "empty task still has an accessible name")
+    println("Task tests passed")
+}

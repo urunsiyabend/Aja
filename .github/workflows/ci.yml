@@ -49,4 +49,4 @@ jobs:
           cmp static/siyo.png dist/siyo.png
           cmp static/style.css dist/style.css
           # Drafts must not reach a production build.
-          ! test -e dist/notes/draft-example
+          ! test -e dist/posts/draft-example

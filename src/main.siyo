@@ -6,7 +6,7 @@ import "filesystem"
 import "server"
 
 fn help() {
-    println("Aja 0.1.0 — a static site generator written in Siyo")
+    println("Aja 0.2.0 — a static site generator written in Siyo")
     println("")
     println("Usage:")
     println("  aja build          generate the site")
@@ -48,7 +48,7 @@ fn runClean() {
     println("Removed " + cfg.outputDir + "/")
 }
 
-fn printVersion() { println("aja 0.1.0 (Siyo 0.7.0)") }
+fn printVersion() { println("aja 0.2.0 (Siyo 0.7.0)") }
 
 fn unknown(command: string) {
     println("Unknown command: " + command)

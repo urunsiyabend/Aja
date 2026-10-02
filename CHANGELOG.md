@@ -4,7 +4,7 @@ All notable changes to Aja are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.2.0 — 2026-10-02
 
 ### Changed
 
@@ -16,6 +16,10 @@ All notable changes to Aja are documented here. The format follows
 
 ### Added
 
+- Markdown task lists with checked/unchecked, disabled accessible checkboxes,
+  including ordered lists and safe inline-formatted labels.
+- Per-document `toc: false` front matter to hide contents navigation while
+  retaining heading permalinks.
 - Heading permalinks and an automatic table of contents for content pages.
 - Visible-body word counts and estimated reading time, excluding fenced code.
 - Previous/next post navigation with deterministic chronological ordering,
@@ -27,6 +31,22 @@ All notable changes to Aja are documented here. The format follows
   CLI commands print a readable error and exit non-zero without a stack trace.
 - Configuration regressions and isolated CLI integration verification covering
   generated HTML, JSON/XML, binary-safe assets, drafts and invalid-input safety.
+- Release validation before publication, manifest/CLI version consistency
+  checks and a SHA-256 checksum file accompanying the source archive.
+
+### Fixed
+
+- Draft-exclusion checks now verify the actual `/posts/draft-example/` output
+  path, and nested-source URL documentation matches the generator's flat routes.
+
+### Upgrade notes
+
+- Siyo 0.7.0 is now required; 0.4.0 is no longer the tested toolchain.
+- New template placeholders: `toc`, `word_count`, `reading_time`,
+  `post_navigation`, `previous_url`, `previous_title`, `next_url`, `next_title`.
+- Existing custom templates keep working; add the new placeholders to opt
+  into the reading aids. The default theme already includes them.
+- CLI integration verification uses Python 3.11+ (standard library only).
 
 ## 0.1.0 — 2026-08-30
 
