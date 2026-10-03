@@ -3,29 +3,65 @@ import "builder"
 import "checker"
 import "config"
 import "filesystem"
+import "model"
 import "server"
 
 fn help() {
-    println("Aja 0.2.0 — a static site generator written in Siyo")
+    println("Aja 0.3.0 — a static site generator written in Siyo")
     println("")
     println("Usage:")
-    println("  aja build          generate the site")
-    println("  aja check          validate config and content")
-    println("  aja serve [port]   build and serve with concurrent requests")
+    println("  aja build [--drafts]          generate the site")
+    println("  aja check [--drafts]          validate config and content")
+    println("  aja serve [port] [--drafts]   build and serve with concurrent requests")
     println("  aja clean          remove generated output")
     println("  aja version        print versions")
 }
 
-fn runBuild() {
+fn buildConfig(args: string[]) -> SiteConfig {
     mut cfg = config.load("aja.json")
+    mut seenDrafts = false
+    mut seenPort = false
+    for i in range(1, len(args)) {
+        mut option = args[i]
+        if option == "--drafts" && !seenDrafts {
+            cfg.includeDrafts = true
+            seenDrafts = true
+        } else if toLower(args[0]) == "serve" && !seenPort && !startsWith(option, "-") {
+            mut valid = len(option) > 0 && len(option) <= 5
+            for position in range(0, len(option)) {
+                mut ch = substring(option, position, position + 1)
+                if ch < "0" || ch > "9" { valid = false }
+            }
+            if !valid {
+                println("error: invalid port " + option)
+                os.exit(1)
+                return cfg
+            }
+            mut port = parseInt(option)
+            if port < 1 || port > 65535 {
+                println("error: port must be between 1 and 65535")
+                os.exit(1)
+                return cfg
+            }
+            cfg.port = port
+            seenPort = true
+        } else {
+            println("error: unknown or duplicate argument " + option)
+            os.exit(1)
+        }
+    }
+    cfg
+}
+
+fn runBuild(cfg: SiteConfig) {
     mut stats = builder.build(cfg)
     println("Aja focused " + toString(stats.rendered) + " page(s) and " + toString(stats.copiedAssets) + " asset(s) in " + toString(stats.elapsedMillis) + "ms")
     if stats.skippedDrafts > 0 { println("Skipped " + toString(stats.skippedDrafts) + " draft(s)") }
     println("Output: " + cfg.outputDir + "/")
 }
 
-fn runCheck() {
-    mut failures = checker.check(config.load("aja.json"))
+fn runCheck(cfg: SiteConfig) {
+    mut failures = checker.check(cfg)
     if failures == 0 {
         println("Aja check passed")
     } else {
@@ -35,11 +71,9 @@ fn runCheck() {
 }
 
 fn runServe(args: string[]) {
-    mut cfg = config.load("aja.json")
-    mut port = cfg.port
-    if len(args) > 1 { port = parseInt(args[1]) }
-    runBuild()
-    server.serve(cfg.outputDir, port)
+    mut cfg = buildConfig(args)
+    runBuild(cfg)
+    server.serve(cfg.outputDir, cfg.port)
 }
 
 fn runClean() {
@@ -48,7 +82,7 @@ fn runClean() {
     println("Removed " + cfg.outputDir + "/")
 }
 
-fn printVersion() { println("aja 0.2.0 (Siyo 0.7.0)") }
+fn printVersion() { println("aja 0.3.0 (Siyo 0.7.0)") }
 
 fn unknown(command: string) {
     println("Unknown command: " + command)
@@ -64,10 +98,15 @@ fn main() {
     }
 
     mut command = toLower(args[0])
+    if len(args) > 1 && (command == "clean" || command == "version" || command == "help") {
+        println("error: " + command + " takes no arguments")
+        os.exit(1)
+        return
+    }
     try {
         match command {
-            "build" => runBuild(),
-            "check" => runCheck(),
+            "build" => runBuild(buildConfig(args)),
+            "check" => runCheck(buildConfig(args)),
             "serve" => runServe(args),
             "clean" => runClean(),
             "version" => printVersion(),

@@ -1,6 +1,8 @@
 import "std/html"
 import "std/json"
 import "model"
+import "search"
+import "archives"
 
 fn xml(value: string) -> string { html.escape(value) }
 
@@ -29,6 +31,10 @@ fn sitemap(config: SiteConfig, pages: Page[]) -> string {
     for page in pages {
         urls += "  <url><loc>" + xml(config.baseUrl + page.url) + "</loc></url>\n"
     }
+    urls += "  <url><loc>" + xml(config.baseUrl + "/search/") + "</loc></url>\n"
+    for url in archives.urls(pages) {
+        urls += "  <url><loc>" + xml(config.baseUrl + url) + "</loc></url>\n"
+    }
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
         "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n" + urls + "</urlset>\n"
 }
@@ -45,6 +51,7 @@ fn searchIndex(pages: Page[]) -> string {
         entry.set("url", page.url)
         entry.set("date", page.date)
         entry.set("tags", page.tags)
+        entry.set("content", search.plainText(page.renderedBody))
         output += json.stringify(entry)
     }
     output + "]\n"

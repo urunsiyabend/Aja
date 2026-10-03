@@ -2,9 +2,37 @@ import "std/io"
 import "std/path"
 import "content"
 import "model"
+import "archives"
 
 fn report(message: string) {
     println("  error: " + message)
+}
+
+// New discovery pages own these output paths. Validate before build cleanup.
+fn discoveryConflicts(config: SiteConfig, pages: Page[]) -> int {
+    mut failures = 0
+    mut urls = archives.urls(pages)
+    push(urls, "/search/")
+    for url in urls {
+        for page in pages {
+            if page.url == url {
+                report(page.relativePath + " conflicts with reserved generated URL " + url)
+                failures += 1
+            }
+        }
+        mut relative = substring(url, 1, len(url)) + "index.html"
+        mut parts = split(relative, "/")
+        mut ancestor = config.staticDir
+        for i in range(0, len(parts)) {
+            ancestor = path.join(ancestor, parts[i])
+            if io.exists(ancestor) && (io.isFile(ancestor) || i == len(parts) - 1) {
+                report(ancestor + " conflicts with reserved generated path " + relative)
+                failures += 1
+                break
+            }
+        }
+    }
+    failures
 }
 
 fn check(config: SiteConfig) -> int {
@@ -19,6 +47,7 @@ fn check(config: SiteConfig) -> int {
     }
 
     mut loaded = content.load(config)
+    failures += discoveryConflicts(config, loaded.pages)
     for page in loaded.pages {
         if len(trim(page.title)) == 0 {
             report(page.relativePath + " has an empty title")

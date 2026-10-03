@@ -1,0 +1,120 @@
+import "std/testing"
+import "model"
+import "archives"
+
+fn post(title: string, date: string, url: string) -> Page {
+    mut page = model.emptyPage(title + ".md", title + ".md")
+    page.title = title
+    page.date = date
+    page.url = url
+    page
+}
+
+fn testMonths() {
+    mut pages: Page[] = [post("Older", "2025-12-10", "/older/"), post("New", "2026-09-01", "/new/"), post("Same", "2026-09-02", "/same/")]
+    mut found = archives.months(pages)
+    testing.assertEqual(toString(len(found)), "2", "months are unique")
+    testing.assertEqual(found[0], "2026-09", "newest month first")
+    testing.assertEqual(found[1], "2025-12", "older month second")
+    testing.assertEqual(pages[0].url, "/older/", "months preserves source order")
+}
+
+fn testPublishedCalendarDates() {
+    mut draft = post("Draft", "2099-01-01", "/draft/")
+    draft.draft = true
+    mut standalone = post("About", "2098-01-01", "/about/")
+    standalone.kind = PageKind.Page
+    mut pages: Page[] = [draft, standalone, post("Valid", "2026-09-01", "/valid/"), post("Leap", "2024-02-29", "/leap/"), post("Century leap", "2000-02-29", "/century/")]
+    mut invalid: string[] = ["", "2026-02-30", "2026-02-29", "1900-02-29", "2026-04-31", "2026-13-01", "2026-00-01", "2026-01-00", "2026-01-32", "2026-9-01", "2026-09-1", " 2026-09-01", "2026-09-01 ", "2026-09-01T00:00:00", "202x-09-01", "2026/09/01", "+2026-09-01", "２０２６-09-01"]
+    for date in invalid { push(pages, post("Invalid", date, "/invalid/")) }
+    mut found = archives.months(pages)
+    testing.assertEqual(toString(len(found)), "3", "only published posts with exact real calendar dates create months")
+    testing.assertEqual(found[0], "2026-09", "draft and page months excluded")
+    testing.assertEqual(found[1], "2024-02", "leap date accepted")
+    testing.assertEqual(found[2], "2000-02", "400-year leap date accepted")
+}
+
+fn testPostsForMonth() {
+    mut older = post("Older", "2026-09-01", "/older/")
+    mut b = post("B", "2026-09-30", "/b/")
+    mut a = post("A", "2026-09-30", "/a/")
+    mut draft = post("Draft", "2026-09-29", "/draft/")
+    draft.draft = true
+    mut standalone = post("Page", "2026-09-29", "/page/")
+    standalone.kind = PageKind.Page
+    mut pages: Page[] = [older, b, a, draft, standalone, post("Other", "2026-08-31", "/other/"), post("Bad", "2026-09-31", "/bad/")]
+    mut found = archives.postsForMonth(pages, "2026-09")
+    testing.assertEqual(toString(len(found)), "3", "monthly posts filter drafts pages invalid dates and other months")
+    testing.assertEqual(found[0].url, "/a/", "URL ascending breaks equal date ties")
+    testing.assertEqual(found[1].url, "/b/", "equal-date second URL")
+    testing.assertEqual(found[2].url, "/older/", "dates descend")
+    testing.assertEqual(pages[0].url, "/older/", "monthly sorting preserves original first position")
+    testing.assertEqual(pages[1].url, "/b/", "monthly sorting preserves original second position")
+    testing.assertEqual(pages[2].url, "/a/", "monthly sorting preserves original third position")
+    testing.assertEqual(toString(len(archives.postsForMonth(pages, "2026-9"))), "0", "malformed month returns no posts")
+    testing.assertEqual(toString(len(archives.postsForMonth(pages, "2027-01"))), "0", "absent month returns no posts")
+}
+
+fn testIndexBody() {
+    mut draft = post("Draft", "2027-01-01", "/draft/")
+    draft.draft = true
+    mut pages: Page[] = [post("Old", "2025-12-01", "/old/"), post("A", "2026-09-01", "/a/"), post("B", "2026-09-02", "/b/"), draft]
+    mut body = archives.indexBody(pages)
+    testing.assert(contains(body, "href=\"/archive/2026/09/\""), "index links to monthly archive")
+    testing.assert(contains(body, "2026-09</a> (2 posts)"), "index shows month and post count")
+    testing.assert(contains(body, "2025-12</a> (1 post)"), "index shows singular count")
+    testing.assert(indexOf(body, "/archive/2026/09/") < indexOf(body, "/archive/2025/12/"), "index lists months newest first")
+    testing.assert(!contains(body, "2027"), "index excludes draft-only month")
+    testing.assert(contains(archives.indexBody([]), "No posts yet."), "empty index has graceful message")
+    testing.assert(!contains(archives.indexBody([draft]), "href="), "excluded-only index creates no month link")
+}
+
+fn testMonthBody() {
+    mut unsafe = post("<script> & \"title\"", "2026-09-30", "/posts/\" onmouseover=\"bad&<x>/")
+    unsafe.description = "<img src=x> & description"
+    mut old = post("Old", "2026-09-01", "/old/")
+    mut draft = post("Secret", "2026-09-29", "/secret/")
+    draft.draft = true
+    mut body = archives.monthBody([old, draft, unsafe], "2026-09")
+    testing.assert(contains(body, "<h1>2026-09</h1>"), "monthly heading identifies month")
+    testing.assert(contains(body, "href=\"/posts/&quot; onmouseover=&quot;bad&amp;&lt;x&gt;/\""), "monthly URL is attribute escaped")
+    testing.assert(contains(body, "&lt;script&gt; &amp;"), "monthly title is text escaped")
+    testing.assert(contains(body, "&lt;img src=x&gt; &amp; description"), "description is text escaped")
+    testing.assert(contains(body, "datetime=\"2026-09-30\""), "monthly post has date")
+    testing.assert(indexOf(body, "2026-09-30") < indexOf(body, "/old/"), "monthly post links follow descending dates")
+    testing.assert(!contains(body, "Secret"), "monthly body excludes drafts")
+    testing.assert(!contains(body, "<script>"), "monthly body never interpolates raw title markup")
+    testing.assert(contains(archives.monthBody([], "2026-09"), "No posts yet."), "empty month body is graceful")
+    mut hostile = archives.monthBody([], "<img src=x>")
+    testing.assert(!contains(hostile, "<img"), "arbitrary requested month is escaped")
+    testing.assert(contains(hostile, "&lt;img src=x&gt;"), "escaped requested month remains readable")
+}
+
+fn testUrls() {
+    mut draft = post("Draft", "2027-01-01", "/draft/")
+    draft.draft = true
+    mut standalone = post("Page", "2027-02-01", "/page/")
+    standalone.kind = PageKind.Page
+    mut pages: Page[] = [post("Old", "2025-12-01", "/old/"), post("New", "2026-09-01", "/new/"), post("Same", "2026-09-02", "/same/"), draft, standalone, post("Invalid", "2026-02-30", "/invalid/")]
+    mut found = archives.urls(pages)
+    testing.assertEqual(toString(len(found)), "3", "archive URLs contain index and only actual unique months")
+    testing.assertEqual(found[0], "/archive/", "archive URL includes index first")
+    testing.assertEqual(found[1], "/archive/2026/09/", "newest actual monthly URL")
+    testing.assertEqual(found[2], "/archive/2025/12/", "older actual monthly URL")
+    mut empty = archives.urls([])
+    testing.assertEqual(toString(len(empty)), "1", "no-post archive has only index URL")
+    testing.assertEqual(empty[0], "/archive/", "no-post archive keeps index")
+    testing.assertEqual(toString(len(archives.urls([draft, standalone, post("Invalid", "2026-02-30", "/bad/")]))), "1", "excluded-only archive emits no empty month artifacts")
+    testing.assertEqual(toString(len(archives.months([]))), "0", "empty months list")
+    testing.assertEqual(toString(len(archives.postsForMonth([], "2026-09"))), "0", "empty monthly post list")
+}
+
+fn main() {
+    testMonths()
+    testPublishedCalendarDates()
+    testPostsForMonth()
+    testIndexBody()
+    testMonthBody()
+    testUrls()
+    println("Archive tests passed")
+}

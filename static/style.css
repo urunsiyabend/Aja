@@ -86,6 +86,7 @@ img, video { max-width: 100%; height: auto; }
 
 .site-header nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 1.25rem;
   font-size: 0.95rem;
 }
@@ -269,6 +270,24 @@ pre code { padding: 0; background: none; border: 0; }
   text-decoration: none;
 }
 .tags a:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Search and archives ----------------------------------------------- */
+
+#search-form label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+.search-controls { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.search-controls input,
+.search-controls button { font: inherit; padding: 0.55rem 0.75rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.search-controls input { flex: 1 1 10rem; min-width: 0; color: var(--ink); background: var(--bg-soft); }
+.search-controls button { cursor: pointer; background: var(--accent); color: var(--bg); }
+.search-controls input:focus-visible,
+.search-controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+#search-status { margin-top: 0.75rem; color: var(--muted); }
+#search-results > li { padding: 1.4rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+#search-results > li > a { display: block; font-size: 1.2rem; font-weight: 650; line-height: 1.3; text-decoration: none; }
+#search-results p { margin: 0.4rem 0 0; color: var(--muted); }
+.archive-months { list-style: none; padding: 0; }
+.archive-months li { padding: 0.75rem 0; border-bottom: 1px solid var(--line); }
+.archive-months a { font-family: var(--font-mono); }
 
 /* Footer ------------------------------------------------------------ */
 

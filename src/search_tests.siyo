@@ -1,0 +1,18 @@
+import "std/testing"
+import "feed"
+import "model"
+import "search"
+
+fn main() {
+    mut page = model.emptyPage("content/search.md", "search.md")
+    page.title = "Search example"
+    page.url = "/posts/search/"
+    page.renderedBody = "<p>hel<strong>lo</strong> &lt;safe&gt; &amp; text</p><pre><code>sample()</code></pre><p>next</p>"
+    mut index = feed.searchIndex([page])
+    testing.assert(contains(index, "\"content\":\"hello <safe> & text sample() next\""), "search index contains decoded full body, not HTML markup")
+    testing.assertEqual(search.plainText("<p title=\"attributeSecret\">Visible</p><p>Other</p>"), "Visible Other", "attributes do not enter search and block boundaries separate words")
+    testing.assertEqual(search.plainText("<p>&amp;lt;script&amp;gt; &quot;quoted&quot; &#39;apostrophe&#39;</p>"), "&lt;script&gt; \"quoted\" 'apostrophe'", "entity decoding occurs only once")
+    testing.assertEqual(search.plainText("\n<p> Ürün\tnaïve   दस्तावेज़ </p>\n"), "Ürün naïve दस्तावेज़", "normalizes whitespace without damaging Unicode")
+    testing.assertEqual(search.plainText(""), "", "empty content remains empty")
+    println("Search index tests passed")
+}

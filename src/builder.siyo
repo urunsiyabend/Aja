@@ -1,9 +1,13 @@
 import java "java.lang.System"
 import "std/html"
+import "std/os"
+import "checker"
 import "content"
+import "archives"
 import "feed"
 import "filesystem"
 import "model"
+import "search"
 import "template"
 
 fn postList(pages: Page[], start: int, finish: int) -> string {
@@ -105,8 +109,12 @@ fn buildTagPages(config: SiteConfig, pages: Page[]) {
 
 fn build(config: SiteConfig) -> BuildStats {
     mut started = System.currentTimeMillis()
-    filesystem.clean(config.outputDir)
     mut loaded = content.load(config)
+    if checker.discoveryConflicts(config, loaded.pages) > 0 {
+        os.exit(1)
+        return model.emptyStats()
+    }
+    filesystem.clean(config.outputDir)
     mut stats = model.emptyStats()
     stats.discovered = loaded.discovered
     stats.skippedDrafts = loaded.skippedDrafts
@@ -118,6 +126,13 @@ fn build(config: SiteConfig) -> BuildStats {
 
     buildIndexes(config, loaded.pages)
     buildTagPages(config, loaded.pages)
+    filesystem.writeText(config.outputDir, "archive/index.html", template.renderDocument(config, "Archive", config.description, "/archive/", archives.indexBody(loaded.pages)))
+    for month in archives.months(loaded.pages) {
+        mut url = "/archive/" + replace(month, "-", "/") + "/"
+        mut relative = substring(url, 1, len(url)) + "index.html"
+        filesystem.writeText(config.outputDir, relative, template.renderDocument(config, "Archive: " + month, config.description, url, archives.monthBody(loaded.pages, month)))
+    }
+    filesystem.writeText(config.outputDir, "search/index.html", template.renderDocument(config, "Search", config.description, "/search/", search.pageBody()))
     filesystem.writeText(config.outputDir, "feed.xml", feed.rss(config, loaded.pages))
     filesystem.writeText(config.outputDir, "sitemap.xml", feed.sitemap(config, loaded.pages))
     filesystem.writeText(config.outputDir, "search.json", feed.searchIndex(loaded.pages))

@@ -1,6 +1,6 @@
 # Aja
 
-Version **0.2.0** — requires **Siyo 0.7.0**.
+Version **0.3.0** — requires **Siyo 0.7.0**.
 
 Aja is a static site generator written entirely in [Siyo](https://github.com/urunsiyabend/SiyoCompiler).
 It reads Markdown from `content/`, applies HTML templates from `templates/`,
@@ -40,9 +40,9 @@ siyoc run serve 8080
 ## Commands
 
 ```text
-aja build          generate pages and static artifacts
-aja check          validate configuration, metadata, templates and URL clashes
-aja serve [port]   rebuild, then serve files with concurrent request handling
+aja build [--drafts]          generate pages and static artifacts
+aja check [--drafts]          validate config, templates and URL clashes
+aja serve [port] [--drafts]   rebuild, then serve concurrent requests
 aja clean          remove the output tree after applying path safety checks
 aja version        print the Aja and Siyo versions
 aja help           show command help
@@ -61,7 +61,10 @@ which makes `./aja check && ./aja build` a usable CI gate.
 - Markdown task lists with read-only checked/unchecked checkboxes
 - HTML escaping everywhere, plus link-scheme filtering
 - Paginated post indexes and generated tag archives
-- RSS 2.0, XML sitemap, `robots.txt` and a JSON search index
+- RSS 2.0, XML sitemap, `robots.txt` and a full-text JSON search index
+- Accessible client-side search at `/search/`, with accent-insensitive matching
+- Monthly published-post archives at `/archive/` and `/archive/YYYY/MM/`
+- Explicit `--drafts` previews without changing site configuration
 - Recursive, binary-safe static asset copying
 - A concurrent development server with canonical-path traversal protection
 - Strict JSON configuration parsing with typed errors and readable CLI diagnostics
@@ -159,6 +162,46 @@ means an older post and next means a newer one, using ascending `YYYY-MM-DD`
 dates and URL as the tie-breaker. Drafts, standalone pages and undated posts
 are excluded. This order does not alter weighted homepage listings.
 
+## Search and archives
+
+`/search/` searches titles, descriptions, tags and rendered body text, including
+code examples. Every query term must match; title matches rank ahead of metadata
+and body-only matches. Matching ignores accents, NFC/NFD differences and Turkish
+`İ`/`I`/`i`/`ı` distinctions. Results use safe DOM text rather than injected HTML.
+Share a query using `/search/?q=your+query`; live input updates that URL.
+
+Search uses the dependency-free `static/search.js` and requires JavaScript in
+the visitor’s browser. Custom themes still receive `/search/`; retain/copy
+`static/search.js` into a custom `static_dir`. The JSON array keeps its existing
+metadata fields and adds `content` containing decoded rendered body text.
+
+`/archive/` links to monthly archives with post counts. Months and posts are
+newest first, independent of homepage `weight`; equal-date posts use URL order.
+Only published posts with valid Gregorian `YYYY-MM-DD` dates participate; drafts
+and standalone pages do not, even in draft preview. No-post sites get a readable
+empty archive without empty month pages. Discovery pages enter the sitemap.
+
+The generated `/search/` and `/archive/` routes are reserved. Rename standalone
+pages that used these slugs. Conflicting static files at generated discovery
+paths (or file ancestors blocking them) fail `check` and `build` before the
+existing output is deleted. Add Search and Archive links to custom navigation
+to expose the new pages; the bundled theme includes them.
+
+## Draft previews
+
+```sh
+./aja check --drafts
+./aja build --drafts
+./aja serve 4173 --drafts  # --drafts may also precede the port
+```
+
+The flag enables draft content for that invocation only and never rewrites
+`aja.json`. Preview output—including the homepage, search index, feed and
+sitemap—can contain drafts: **do not deploy it**. Run a normal build again with
+`include_drafts: false` to remove them. Archive pages stay published-only.
+Unknown/duplicate options, extra arguments and invalid CLI ports fail rather
+than being silently ignored. Ports must be decimal values from 1 to 65535.
+
 ## Configuration
 
 `aja.json` holds site identity, input/output directories, pagination, draft
@@ -197,17 +240,21 @@ siyo.toml    Siyo project manifest
 ## Development
 
 The CLI/artifact verification script requires Python 3.11+ and uses only the
-standard library. Aja itself still needs only the Siyo runtime.
+standard library. JavaScript search unit tests use Node.js 22 (also pinned in
+CI); Node is a development-only dependency, not needed to generate or serve
+your site. Aja itself still needs only the Siyo runtime.
 
 ```sh
 siyoc test       # run the Siyo test suite in src/test.siyo
 ./aja check      # validate the example site
 ./aja build      # regenerate dist/
-python3 scripts/verify.py  # isolated CLI and generated-artifact verification
+python3 scripts/verify.py  # isolated CLI, artifacts and draft-server verification
+node scripts/search_test.mjs  # browser-search logic and safe URL regressions
 ```
 
-The default theme is a single dependency-free stylesheet in
-`static/style.css`. It follows the visitor's `prefers-color-scheme` and styles
+The default theme uses a dependency-free search script (`static/search.js`) and
+stylesheet (`static/style.css`). The stylesheet follows the visitor's
+`prefers-color-scheme` and styles
 the stable class names Aja emits (`hero`, `section-title`, `post-list`,
 `post-item`, `prose`, `tags`, `pagination`). Replace it wholesale and the
 generator will not notice.

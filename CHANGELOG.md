@@ -4,6 +4,43 @@ All notable changes to Aja are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.0 — 2026-10-03
+
+### Added
+
+- Accessible full-text search at `/search/` with shareable `?q=` URLs, live
+  results, all-term matching and title-first ranking across titles,
+  descriptions, tags and body text. No frontend dependencies.
+- Accent-insensitive Unicode matching, including NFC/NFD and Turkish I forms;
+  safe DOM rendering, same-origin result links and explicit loading/error states.
+- Additive `content` text in `search.json`, derived from rendered Markdown with
+  HTML attributes removed and renderer entities decoded exactly once.
+- Published-post monthly archive index with counts and `/archive/YYYY/MM/`
+  pages, real-calendar date filtering, newest-first ordering independent of weight,
+  deterministic ties and graceful empty archives.
+- Search and Archive navigation in the default theme and discovery-page sitemap
+  entries.
+- `--drafts` for `build`, `check` and `serve`; preview without persisting config,
+  with published-only archives and a default rebuild that removes preview drafts.
+- Search, archive, CLI argument, draft-server and reserved-output regressions.
+
+### Fixed
+
+- Reject unknown/duplicate CLI arguments and invalid ports with readable errors
+  instead of silently ignoring options or surfacing parser exceptions.
+- Detect content/static conflicts with generated discovery routes before build
+  cleanup, preserving existing output when validation fails.
+
+### Upgrade notes
+
+- Siyo 0.7.0 remains the tested generator toolchain; Node.js 22 is used only for
+  development/CI search tests. Visitor search requires browser JavaScript.
+- `/search/` and `/archive/` are reserved generated routes. Rename conflicting
+  standalone pages/static files; custom themes should retain `search.js` and
+  add navigation links to these routes.
+- The existing search JSON array is retained; consumers may opt into its new
+  `content` field. Preview artifacts can contain drafts and must not be deployed.
+
 ## 0.2.0 — 2026-10-02
 
 ### Changed

@@ -1,0 +1,105 @@
+import "model"
+import "std/html"
+
+// ASCII shape validation precedes slicing/conversion. Gregorian leap-year
+// rules reject impossible dates without Java parse exceptions escaping.
+fn validDate(date: string) -> bool {
+    if len(date) != 10 { return false }
+    if substring(date, 4, 5) != "-" || substring(date, 7, 8) != "-" { return false }
+    for i in range(0, 10) {
+        if i == 4 || i == 7 { continue }
+        mut digit = substring(date, i, i + 1)
+        if digit < "0" || digit > "9" { return false }
+    }
+    mut year = toInt(substring(date, 0, 4))
+    mut month = toInt(substring(date, 5, 7))
+    mut day = toInt(substring(date, 8, 10))
+    if month < 1 || month > 12 || day < 1 { return false }
+    mut limit = 31
+    if month == 4 || month == 6 || month == 9 || month == 11 { limit = 30 }
+    if month == 2 {
+        limit = 28
+        if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { limit = 29 }
+    }
+    day <= limit
+}
+
+fn eligible(page: Page) -> bool {
+    page.isPost() && !page.draft && validDate(page.date)
+}
+
+pub fn postsForMonth(pages: Page[], month: string) -> Page[] {
+    mut result: Page[] = []
+    for page in pages {
+        if !eligible(page) { continue }
+        if substring(page.date, 0, 7) == month { push(result, page) }
+    }
+    // Sort a fresh array, never the caller's listing/weight order.
+    sort(result, fn(a: Page, b: Page) -> int {
+        if a.date > b.date { return -1 }
+        if a.date < b.date { return 1 }
+        if a.url < b.url { return -1 }
+        if a.url > b.url { return 1 }
+        0
+    })
+    result
+}
+
+pub fn monthBody(pages: Page[], month: string) -> string {
+    mut posts = postsForMonth(pages, month)
+    mut output = "<h1>" + html.escape(month) + "</h1>\n"
+    if len(posts) == 0 { return output + "<p>No posts yet.</p>\n" }
+    output += "<ol class=\"post-list\">\n"
+    for page in posts {
+        output += "  <li class=\"post-item\">\n"
+        output += "    <time datetime=\"" + html.escapeAttr(page.date) + "\">" + html.escape(page.date) + "</time>\n"
+        output += "    <h3><a href=\"" + html.escapeAttr(page.url) + "\">" + html.escape(page.title) + "</a></h3>\n"
+        if len(page.description) > 0 {
+            output += "    <p>" + html.escape(page.description) + "</p>\n"
+        }
+        output += "  </li>\n"
+    }
+    output + "</ol>\n"
+}
+
+fn monthUrl(month: string) -> string {
+    "/archive/" + substring(month, 0, 4) + "/" + substring(month, 5, 7) + "/"
+}
+
+pub fn indexBody(pages: Page[]) -> string {
+    mut found = months(pages)
+    mut output = "<h1>Archive</h1>\n"
+    if len(found) == 0 { return output + "<p>No posts yet.</p>\n" }
+    output += "<ul class=\"archive-months\">\n"
+    for month in found {
+        mut count = len(postsForMonth(pages, month))
+        mut label = if count == 1 { " post" } else { " posts" }
+        output += "  <li><a href=\"" + html.escapeAttr(monthUrl(month)) + "\">" + html.escape(month) + "</a> (" + toString(count) + label + ")</li>\n"
+    }
+    output + "</ul>\n"
+}
+
+pub fn urls(pages: Page[]) -> string[] {
+    mut result: string[] = ["/archive/"]
+    for month in months(pages) { push(result, monthUrl(month)) }
+    result
+}
+
+pub fn months(pages: Page[]) -> string[] {
+    mut result: string[] = []
+    for page in pages {
+        if !eligible(page) { continue }
+        mut month = substring(page.date, 0, 7)
+        mut found = false
+        for existing in result {
+            if existing == month { found = true }
+        }
+        if !found { push(result, month) }
+    }
+    sort(result, fn(a: string, b: string) -> int {
+        if a > b { return -1 }
+        if a < b { return 1 }
+        0
+    })
+    result
+}

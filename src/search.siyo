@@ -1,0 +1,55 @@
+import java "java.lang.Character"
+
+// Decode only renderer-produced entities, once, after stripping actual tags.
+// Inline emphasis must not split a word; block boundaries must not join words.
+fn plainText(source: string) -> string {
+    mut output = ""
+    mut tag = ""
+    mut inTag = false
+    for i in range(0, len(source)) {
+        mut ch = substring(source, i, i + 1)
+        if ch == "<" { inTag = true; tag = ""; continue }
+        if inTag {
+            if ch == ">" {
+                inTag = false
+                mut name = toLower(trim(tag))
+                mut space = indexOf(name, " ")
+                if space >= 0 { name = substring(name, 0, space) }
+                if startsWith(name, "/") { name = substring(name, 1, len(name)) }
+                if name == "p" || name == "li" || name == "br" || name == "pre" || name == "blockquote" || name == "td" || name == "th" || name == "tr" || name == "hr" || name == "h1" || name == "h2" || name == "h3" || name == "h4" || name == "h5" || name == "h6" { output += " " }
+            } else { tag += ch }
+            continue
+        }
+        output += ch
+    }
+    output = replace(output, "&lt;", "<")
+    output = replace(output, "&gt;", ">")
+    output = replace(output, "&quot;", "\"")
+    output = replace(output, "&#39;", "'")
+    output = replace(output, "&#x27;", "'")
+    output = replace(output, "&amp;", "&")
+    mut compact = ""
+    mut pendingSpace = false
+    for i in range(0, len(output)) {
+        mut ch = substring(output, i, i + 1)
+        if Character.isWhitespace(ord(ch)) {
+            pendingSpace = len(compact) > 0
+        } else {
+            if pendingSpace { compact += " " }
+            compact += ch
+            pendingSpace = false
+        }
+    }
+    compact
+}
+
+fn pageBody() -> string {
+    "<section class=\"hero hero-compact\"><h1>Search</h1><p>Find pages and posts by title, tags or full text.</p></section>\n" +
+    "<form id=\"search-form\" role=\"search\" action=\"/search/\" method=\"get\">\n" +
+    "<label for=\"search-query\">Search this site</label>\n" +
+    "<div class=\"search-controls\"><input id=\"search-query\" name=\"q\" type=\"search\" autocomplete=\"off\" aria-describedby=\"search-status\"><button type=\"submit\">Search</button></div>\n" +
+    "</form>\n<p id=\"search-status\" role=\"status\" aria-live=\"polite\">Loading search index…</p>\n" +
+    "<ol id=\"search-results\" class=\"post-list\"></ol>\n" +
+    "<noscript><p>Search requires JavaScript. Browse the <a href=\"/archive/\">post archive</a> instead.</p></noscript>\n" +
+    "<script src=\"/search.js\" defer></script>\n"
+}

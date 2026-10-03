@@ -25,6 +25,13 @@ jobs:
       - name: Report toolchain version
         run: siyoc --version
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify browser search
+        run: node scripts/search_test.mjs
+
       - name: Run test suite
         run: siyoc test
 

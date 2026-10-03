@@ -36,6 +36,13 @@ jobs:
           tar xzf siyo.tar.gz
           echo "$PWD/siyo-${SIYO_VERSION}-linux-x64/bin" >> "$GITHUB_PATH"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify browser search
+        run: node scripts/search_test.mjs
+
       - name: Verify the release candidate
         run: |
           python3 scripts/verify.py
